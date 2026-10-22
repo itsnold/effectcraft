@@ -1,7 +1,7 @@
 // Original Android/tablet input adapter. No proprietary UI code or artwork.
 // Keep gesture arbitration independent of the DOM so it can be regression-tested under Node.
 export class TouchGesture {
-  constructor(emit, schedule = setTimeout, cancel = clearTimeout) {
+  constructor(emit, schedule = (fn, delay) => globalThis.setTimeout(fn, delay), cancel = (id) => globalThis.clearTimeout(id)) {
     this.emit = emit;
     this.schedule = schedule;
     this.cancel = cancel;

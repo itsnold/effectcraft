@@ -78,6 +78,8 @@ try {
   await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
   // A fake native export sink lets us verify the real Rust-generated blob download end to end.
   await send("Page.addScriptToEvaluateOnNewDocument", { source: `
+    window.addEventListener('error',e=>window.ecdroidStartupError=String(e.error||e.message));
+    window.addEventListener('unhandledrejection',e=>window.ecdroidStartupError=String(e.reason));
     window.nativeExports=[];window.ECDroidNative={
       begin(name,mime,size){this.current={name,mime,size,received:0};return ''},
       chunk(data){this.current.received+=atob(data).length;return ''},
@@ -85,7 +87,7 @@ try {
     };
   ` });
   await send("Page.navigate", { url: `http://127.0.0.1:${server.address().port}/?android&nosw&frameworkers=1&nogpuworkers` });
-  const load = await until("window.effectcraftLoad?.error || window.effectcraftLoad?.readyMs");
+  const load = await until("window.effectcraftLoad?.error || window.effectcraftLoad?.readyMs || window.ecdroidStartupError");
   assert.equal(typeof load, "number", String(load));
   console.log(`Editor ready after ${Math.round(load)} ms`);
   report.info = await js("effectcraft.info()");

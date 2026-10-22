@@ -1,6 +1,21 @@
 import assert from "node:assert/strict";
 import { TouchGesture, transferAndroidBlob } from "../web/touch.js";
 
+// Browser timers reject an arbitrary object as their receiver (Node timers do not).
+// Exercise the DEFAULT timer path, not just the injected fake scheduler below.
+const nativeSetTimeout = globalThis.setTimeout;
+const nativeClearTimeout = globalThis.clearTimeout;
+try {
+  globalThis.setTimeout = function () { assert.equal(this, globalThis); return 123; };
+  globalThis.clearTimeout = function () { assert.equal(this, globalThis); };
+  const realDefaults = new TouchGesture(() => {});
+  realDefaults.down(1, { x: 10, y: 10 });
+  realDefaults.cancelAll();
+} finally {
+  globalThis.setTimeout = nativeSetTimeout;
+  globalThis.clearTimeout = nativeClearTimeout;
+}
+
 const events = [];
 let timer;
 const gesture = new TouchGesture((event) => events.push(event), (fn) => { timer = fn; return fn; }, (id) => { if (timer === id) timer = null; });

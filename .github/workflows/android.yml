@@ -52,6 +52,18 @@ jobs:
           node apps/effectcraft-web/tests/page.mjs
           node apps/effectcraft-web/tests/storage.mjs
           node apps/effectcraft-web/tests/workers.mjs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.13"
+      - name: Check Android shell before compiling the engine
+        # Unit tests/lint need Java/resources, not a WASM bundle. Never assemble an APK here.
+        run: gradle -p packaging/android :app:testDebugUnitTest :app:lintDebug -x :app:bundleEditor --stacktrace
       - uses: dtolnay/rust-toolchain@1.95.0
         with:
           targets: wasm32-unknown-unknown
@@ -65,15 +77,6 @@ jobs:
         run: cargo xtask web
       - name: Android-mode browser smoke test
         run: node apps/effectcraft-web/tests/android-smoke.mjs --dist target/web/dist --chrome google-chrome --out target/android-smoke
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-      - uses: android-actions/setup-android@v3
-      - run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.13"
       - name: JVM export tests, Android lint, APK assembly
         run: gradle -p packaging/android :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
       - name: Checksum
