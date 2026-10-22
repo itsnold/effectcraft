@@ -24,6 +24,9 @@
 
 pub mod store;
 
+#[cfg(any(target_arch = "wasm32", test))]
+mod graphics;
+
 #[cfg(target_arch = "wasm32")]
 pub mod api;
 #[cfg(target_arch = "wasm32")]

@@ -19,6 +19,10 @@ effectcraft-engine = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
+[dev-dependencies]
+# Exercise the browser's device-limit policy natively, without a graphics adapter.
+effectcraft-gpu = { workspace = true }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 effectcraft-host = { workspace = true }
 effectcraft-gpu = { workspace = true }

@@ -207,13 +207,20 @@ pub async fn start(canvas_id: String) -> Result<(), JsValue> {
     runner
         .start(
             canvas,
-            eframe::WebOptions::default(),
+            crate::graphics::web_options(),
             Box::new(move |cc| {
                 CTX.with(|c| *c.borrow_mut() = Some(cc.egui_ctx.clone()));
                 // The page owns this shared presentation device; worker devices retain their
                 // separate owned-device handlers. No browser error-scope future is blocked on.
                 let gpu_failures = effectcraft_ui_egui::gpu_failure::GpuFailureBridge::new(&cc.egui_ctx);
                 if let Some(rs) = &cc.wgpu_render_state {
+                    api::set_info(
+                        "graphicsLimits",
+                        json!({
+                            "adapterMaxTextureDimension2D": rs.adapter.limits().max_texture_dimension_2d,
+                            "deviceMaxTextureDimension2D": rs.device.limits().max_texture_dimension_2d,
+                        }),
+                    );
                     let errors = gpu_failures.clone();
                     rs.device.on_uncaptured_error(Arc::new(move |error| {
                         let message = format!("uncaptured GPU error: {error}");

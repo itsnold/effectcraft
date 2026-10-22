@@ -13,6 +13,9 @@ services; the editing engine and codecs are unchanged Rust.
 - In this fork's **Actions → Android APK**, select a successful run and download the `ecdroid-debug`
   artifact. Unzip it and install `app-debug.apk`, allowing installation from that source if asked.
   This is a sideloadable **debug-signed testing APK**, not a Play Store production release.
+- Version **0.1.1-alpha** fixes startup on WebViews that expose a 4096-pixel texture limit. The
+  presentation device requests the adapter's advertised limits instead of requiring 8192-pixel
+  textures. CI repeats the touch/save smoke test with a synthetic 4096-pixel WebGL2 adapter.
 - The workflow also includes `SHA256SUMS.txt`. A fresh CI debug key may require uninstalling an
   older testing APK before installing another: **export projects first**, since uninstalling erases
   the app's private session/media storage. Never rely on it as your only copy.

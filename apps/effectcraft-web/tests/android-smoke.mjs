@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i < 0 ? fallback : process.argv[i + 1]; };
 const dist = resolve(arg("dist", "target/web/dist"));
 const out = resolve(arg("out", "target/android-smoke"));
+const webgl4096 = process.argv.includes("--webgl-4096");
 await mkdir(out, { recursive: true });
 const profile = await mkdtemp(join(tmpdir(), "ecdroid-chrome-"));
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -76,6 +77,19 @@ try {
   await send("Page.bringToFront");
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: true });
   await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
+  if (webgl4096) {
+    // Reproduce the reported Android startup failure on desktop CI: prevent WebGPU selection
+    // and make WebGL advertise only 4096px textures. No device-request error is intercepted.
+    await send("Page.addScriptToEvaluateOnNewDocument", { source: `
+      Object.defineProperty(navigator, 'gpu', {value: undefined, configurable: true});
+      const original = WebGL2RenderingContext.prototype.getParameter;
+      WebGL2RenderingContext.prototype.getParameter = function(parameter) {
+        const value = original.call(this, parameter);
+        return [this.MAX_TEXTURE_SIZE, this.MAX_CUBE_MAP_TEXTURE_SIZE, this.MAX_RENDERBUFFER_SIZE].includes(parameter)
+          ? Math.min(value, 4096) : value;
+      };
+    ` });
+  }
   // A fake native export sink lets us verify the real Rust-generated blob download end to end.
   await send("Page.addScriptToEvaluateOnNewDocument", { source: `
     window.addEventListener('error',e=>window.ecdroidStartupError=String(e.error||e.message));
@@ -91,6 +105,12 @@ try {
   assert.equal(typeof load, "number", String(load));
   console.log(`Editor ready after ${Math.round(load)} ms`);
   report.info = await js("effectcraft.info()");
+  if (webgl4096) {
+    assert.equal(report.info.backend, "Gl", "exercise the WebGL2 presentation path");
+    assert.equal(report.info.graphicsLimits.adapterMaxTextureDimension2D, 4096, "synthetic adapter really exposes 4096");
+    assert.equal(report.info.graphicsLimits.deviceMaxTextureDimension2D, 4096, "device request respects the adapter");
+    report.webgl4096 = true;
+  }
   assert.notEqual(report.info.storage.backend, "memory", "private storage must persist");
   assert(await js("document.querySelectorAll('#touch-bar button').length >= 12"));
   await js("document.querySelector('#touch-bar button[aria-label=\"Hand tool (drag to pan the composition)\"]').click()");

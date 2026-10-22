@@ -83,6 +83,8 @@ jobs:
         run: cargo xtask web
       - name: Android-mode browser smoke test
         run: node apps/effectcraft-web/tests/android-smoke.mjs --dist target/web/dist --chrome google-chrome --out target/android-smoke
+      - name: WebView 4096-pixel texture-limit regression
+        run: node apps/effectcraft-web/tests/android-smoke.mjs --dist target/web/dist --chrome google-chrome --out target/android-smoke-webgl4096 --webgl-4096
       - name: JVM export tests, Android lint, APK assembly
         run: gradle -p packaging/android :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
       - name: Checksum
@@ -101,5 +103,6 @@ jobs:
           name: android-test-reports
           path: |
             target/android-smoke/
+            target/android-smoke-webgl4096/
             packaging/android/app/build/reports/
           if-no-files-found: ignore
