@@ -11,6 +11,7 @@ import android.os.Bundle;
 import android.util.Base64;
 import android.view.WindowInsets;
 import android.webkit.JavascriptInterface;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -58,7 +59,14 @@ public final class MainActivity extends Activity {
             }
             return insets;
         });
-        web = new WebView(this);
+        try { web = new WebView(this); }
+        catch (RuntimeException e) {
+            setContentView(root);
+            new AlertDialog.Builder(this).setTitle("Android WebView unavailable")
+                .setMessage("Install or update Android System WebView, then reopen ECDroid.\n" + e.getMessage())
+                .setPositiveButton("Close", (dialog, which) -> finish()).show();
+            return;
+        }
         web.setBackgroundColor(Color.rgb(27, 28, 31));
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -93,6 +101,18 @@ public final class MainActivity extends Activity {
                 }
                 return true; // Never let remote content access the native bridge.
             }
+            @Override public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                root.removeView(view);
+                view.destroy();
+                web = null;
+                if (!isFinishing() && !isDestroyed()) {
+                    new AlertDialog.Builder(MainActivity.this).setTitle("Editor process stopped")
+                        .setMessage("Android stopped the editor (possibly low memory or a GPU error). Reopen to try restoring the last stored session. Unsaved changes since the last snapshot may be lost. Try smaller media or compositions.")
+                        .setPositiveButton("Reopen", (dialog, which) -> recreate())
+                        .setNegativeButton("Close", (dialog, which) -> finish()).show();
+                }
+                return true; // Do not crash the entire app when Chromium's renderer dies.
+            }
         });
         web.setWebChromeClient(new WebChromeClient() {
             @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
@@ -101,7 +121,7 @@ public final class MainActivity extends Activity {
                 Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);
                 intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE);
                 try { startActivityForResult(intent, PICK); }
-                catch (ActivityNotFoundException e) {
+                catch (ActivityNotFoundException | SecurityException e) {
                     filePicker.onReceiveValue(null);
                     filePicker = null;
                     message("No system file picker installed");
@@ -152,7 +172,7 @@ public final class MainActivity extends Activity {
             .setType(pending.mime()).putExtra(Intent.EXTRA_TITLE, pending.name());
         saving = true;
         try { startActivityForResult(intent, SAVE); }
-        catch (ActivityNotFoundException e) {
+        catch (ActivityNotFoundException | SecurityException e) {
             saving = false;
             saveFailed("No system file picker installed");
         }
@@ -194,11 +214,13 @@ public final class MainActivity extends Activity {
     }
 
     @Override public void onBackPressed() {
-        if (web != null) web.evaluateJavascript("window.effectcraft?.request('ui.key',{key:'Escape'}).catch(console.warn)", null);
+        if (web == null) { finish(); return; }
+        web.evaluateJavascript("window.effectcraft?.request('ui.key',{key:'Escape'}).catch(console.warn)", null);
         new AlertDialog.Builder(this).setTitle("Close ECDroid?")
             .setMessage("Save important work with Save first. Session recovery is best effort, not a backup.")
             .setNegativeButton("Keep editing", null)
             .setPositiveButton("Save session & close", (dialog, which) -> {
+                if (web == null) return;
                 web.evaluateJavascript("delete window.ECDroidCloseResult;(async()=>{try{await effectcraft.saveToBrowser();await effectcraft.flush();return 'ok'}catch(e){return String(e)}})().then(r=>window.ECDroidCloseResult=r)", null);
                 // JS promises cannot be awaited by evaluateJavascript: close only after a separate callback below.
                 checkClose(0);
@@ -206,7 +228,9 @@ public final class MainActivity extends Activity {
     }
 
     private void checkClose(int attempts) {
+        if (web == null || isFinishing() || isDestroyed()) return;
         web.evaluateJavascript("window.ECDroidCloseResult ?? null", result -> {
+            if (web == null || isFinishing() || isDestroyed()) return;
             if ("\"ok\"".equals(result)) { finish(); return; }
             if (!"null".equals(result) || attempts >= 30) {
                 message("Session could not be saved. Use Save before closing.");

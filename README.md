@@ -7,7 +7,7 @@ right-click, pinch zoom, two-finger scrolling, touch shortcuts and Android docum
 This is an **alpha tablet/landscape port**, not a fully redesigned mobile editor.
 
 **[Android build, installation, gestures and limitations](docs/android.md)** ·
-**[APK build workflow](../../actions/workflows/android.yml)**
+**[APK build workflow](https://github.com/itsnold/effectcraft/actions/workflows/android.yml)**
 
 The upstream description below documents the shared engine, not a claim that every feature has
 been tested on Android. Upstream trademark artwork has been removed from this fork.

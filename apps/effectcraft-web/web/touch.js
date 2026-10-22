@@ -169,6 +169,7 @@ export function installTouchBar(canvas, modifiers) {
   button("Redo", "Redo", () => invoke("edit.redo"));
   button("Play", "Play / stop preview", () => window.effectcraft.request("ui.playback", {}));
   button("Save", "Save project to an Android document", () => invoke("file.save"));
+  button("Open", "Open an existing project using the system picker", () => invoke("file.open"));
   button("Import", "Import media using the system picker", () => invoke("file.import"));
   button("Select", "Selection tool", () => window.effectcraft.request("ui.set", { tool: "Selection" }));
   button("Hand", "Hand tool (drag to pan the composition)", () => window.effectcraft.request("ui.set", { tool: "Hand" }));
@@ -209,12 +210,26 @@ export function showTouchError(message, retry) {
 
 // WebView's DownloadManager cannot download blob: URLs. Catch the editor's download anchors,
 // then transfer bounded chunks to app-private temporary storage and ACTION_CREATE_DOCUMENT.
+export async function transferAndroidBlob(bridge, name, data) {
+  const check = (error) => { if (error) throw new Error(error); };
+  try {
+    check(bridge.begin(name || "export.bin", data.type || "application/octet-stream", data.size));
+    for (let offset = 0; offset < data.size; offset += 192 * 1024) {
+      const bytes = new Uint8Array(await data.slice(offset, offset + 192 * 1024).arrayBuffer());
+      let raw = "";
+      for (const byte of bytes) raw += String.fromCharCode(byte);
+      check(bridge.chunk(btoa(raw)));
+    }
+    check(bridge.finish());
+  } catch (error) { bridge.abort(); throw error; }
+}
+
 export function installAndroidDownloads() {
   if (!window.ECDroidNative) return;
   let queue = Promise.resolve();
   let pending = 0;
   document.addEventListener("click", (event) => {
-    const a = event.target.closest?.("a[download]");
+    const a = event.target?.closest?.("a[download]");
     if (!a || !a.href.startsWith("blob:")) return;
     event.preventDefault();
     // Start fetch immediately: Rust revokes the object URL later.
@@ -225,19 +240,7 @@ export function installAndroidDownloads() {
       queue = queue.then(async () => {
         const loaded = await blob;
         if (loaded.error) throw loaded.error;
-        const data = loaded.data;
-        const bridge = window.ECDroidNative;
-        const check = (error) => { if (error) throw new Error(error); };
-        try {
-          check(bridge.begin(a.download || "export.bin", data.type || "application/octet-stream", data.size));
-          for (let offset = 0; offset < data.size; offset += 192 * 1024) {
-            const bytes = new Uint8Array(await data.slice(offset, offset + 192 * 1024).arrayBuffer());
-            let raw = "";
-            for (const byte of bytes) raw += String.fromCharCode(byte);
-            check(bridge.chunk(btoa(raw)));
-          }
-          check(bridge.finish());
-        } catch (error) { bridge.abort(); throw error; }
+        await transferAndroidBlob(window.ECDroidNative, a.download, loaded.data);
       }).catch((error) => showTouchError(`Export not saved: ${error}. The editor's output is unchanged.`, send))
         .finally(() => { pending--; });
     };

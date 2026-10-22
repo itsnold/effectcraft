@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { TouchGesture } from "../web/touch.js";
+import { TouchGesture, transferAndroidBlob } from "../web/touch.js";
 
 const events = [];
 let timer;
@@ -55,3 +55,26 @@ types(); gesture.cancelAll();
 gesture.down(1, p(NaN, 1));
 assert.equal(gesture.points.size, 0, "nonfinite coordinates ignored");
 console.log("touch: tap, hold, jitter, drag, pinch, pan, cancellation and multi-touch transition passed");
+
+const payload = Uint8Array.from({ length: 500000 }, (_, i) => i % 256);
+let chunks = [];
+let finished = false;
+let aborted = false;
+const bridge = {
+  begin(name, mime, size) { assert.equal(name, "render.mp4"); assert.equal(mime, "video/mp4"); assert.equal(size, payload.length); return ""; },
+  chunk(data) { assert(data.length <= 262144); chunks.push(Buffer.from(data, "base64")); return ""; },
+  finish() { finished = true; return ""; },
+  abort() { aborted = true; },
+};
+const blob = new Blob([payload], { type: "video/mp4" });
+await transferAndroidBlob(bridge, "render.mp4", blob);
+assert.equal(chunks.length, 3, "large exports are chunked");
+assert.deepEqual(Buffer.concat(chunks), Buffer.from(payload));
+assert(finished && !aborted);
+chunks = []; finished = false;
+await assert.rejects(transferAndroidBlob({ ...bridge, chunk: () => "disk full" }, "render.mp4", blob), /disk full/);
+assert(aborted && !finished, "failed transfer aborts, never reports success");
+aborted = false;
+await assert.rejects(transferAndroidBlob({ ...bridge, begin: () => "export too large" }, "render.mp4", blob), /too large/);
+assert(aborted && !finished);
+console.log("android exports: binary multi-chunk round trip and failed-transfer handling passed");

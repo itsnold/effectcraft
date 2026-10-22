@@ -62,6 +62,7 @@ try {
     catch { await pause(100); }
   }
   assert(page, `Chromium did not start: ${stderr}`);
+  console.log("Chromium started; loading Android-mode editor");
   ws = new WebSocket(page.webSocketDebuggerUrl);
   await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
   ws.onmessage = ({ data }) => {
@@ -72,6 +73,7 @@ try {
     } else if (message.method === "Runtime.exceptionThrown") errors.push(message.params.exceptionDetails);
   };
   await send("Page.enable"); await send("Runtime.enable");
+  await send("Page.bringToFront");
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: true });
   await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
   // A fake native export sink lets us verify the real Rust-generated blob download end to end.
@@ -85,6 +87,7 @@ try {
   await send("Page.navigate", { url: `http://127.0.0.1:${server.address().port}/?android&nosw&frameworkers=1&nogpuworkers` });
   const load = await until("window.effectcraftLoad?.error || window.effectcraftLoad?.readyMs");
   assert.equal(typeof load, "number", String(load));
+  console.log(`Editor ready after ${Math.round(load)} ms`);
   report.info = await js("effectcraft.info()");
   assert.notEqual(report.info.storage.backend, "memory", "private storage must persist");
   assert(await js("document.querySelectorAll('#touch-bar button').length >= 12"));
@@ -92,19 +95,24 @@ try {
   await until("effectcraft.inspect().then(i=>i.ui.tool==='Hand')");
   await js("effectcraft.request('ui.set',{tool:'Selection'})");
   await js("effectcraft.request('ui.menu.invoke',{id:'window.maximizePanel',params:{panel:'Timeline'}})");
+  await pause(150); // Let the new layout replace the previous frame's automation rectangles.
   const elements = await js("effectcraft.request('ui.elements',{prefix:'timeline.'})");
   const row = elements.find((e) => /^timeline\.layer\.\d+\.row$/.test(e.id));
   // Long-press on a layer row, not a synthetic API click: validates capture and right-click routing.
   if (!row) throw new Error(`No layer row found: ${elements.map((e) => e.id).slice(0, 100)}`);
   const [x, y, width, height] = row.rect;
-  await touch("touchStart", [{ x: x + width * 0.65, y: y + height / 2 }]);
+  // Registry coordinates are egui points, whereas CDP expects CSS pixels (UI Scale may be 125%).
+  const cssPerPoint = await js("effectcraft.inspect().then(i=>i.pixelsPerPoint/devicePixelRatio)");
+  await touch("touchStart", [{ x: (x + width * 0.65) * cssPerPoint, y: (y + height / 2) * cssPerPoint }]);
   await pause(650);
   await touch("touchEnd", []);
   await until("effectcraft.request('ui.elements',{prefix:'timeline.layerMenu'}).then(e=>e.length>0)");
   report.longPressMenu = true;
+  console.log("Touch bar and real-touch long-press menu passed");
   await js("effectcraft.request('ui.key',{key:'Escape'})");
   // Maximise the viewer, then pinch. A remaining finger must not modify layer selection.
   await js("effectcraft.request('ui.menu.invoke',{id:'window.maximizePanel',params:{panel:'Composition'}})");
+  await pause(150);
   const before = await js("effectcraft.inspect()");
   await touch("touchStart", [{ x: 500, y: 350 }, { x: 700, y: 350 }]);
   await touch("touchMove", [{ x: 430, y: 350 }, { x: 770, y: 350 }]);
@@ -126,7 +134,11 @@ try {
   console.log("Android-mode editor: startup, storage, touch bar, long press, pinch, save bridge and resize passed");
 } catch (error) {
   report.error = String(error.stack || error);
+  report.chromeStderr = stderr;
   console.error(report.error);
+  if (ws?.readyState === WebSocket.OPEN) {
+    try { await writeFile(join(out, "failure.png"), Buffer.from((await send("Page.captureScreenshot", { format: "png" })).data, "base64")); } catch {}
+  }
   process.exitCode = 1;
 } finally {
   report.errors = errors;
