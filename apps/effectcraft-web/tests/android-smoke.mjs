@@ -102,10 +102,15 @@ try {
   const row = elements.find((e) => /^timeline\.layer\.\d+\.row$/.test(e.id));
   // Long-press on a layer row, not a synthetic API click: validates capture and right-click routing.
   if (!row) throw new Error(`No layer row found: ${elements.map((e) => e.id).slice(0, 100)}`);
-  const [x, y, width, height] = row.rect;
+  const twirl = elements.find((e) => e.id === row.id.replace(/\.row$/, ".twirl"));
+  assert(twirl, "layer twirl identifies the name column independently of visible switches");
+  const [, y, , height] = row.rect;
   // Registry coordinates are egui points, whereas CDP expects CSS pixels (UI Scale may be 125%).
   const cssPerPoint = await js("effectcraft.inspect().then(i=>i.pixelsPerPoint/devicePixelRatio)");
-  await touch("touchStart", [{ x: (x + width * 0.65) * cssPerPoint, y: (y + height / 2) * cssPerPoint }]);
+  // The registered row includes switch/parent cells; only its name/number area owns the layer menu.
+  // Aim beyond the twirl and layer icon, not at an arbitrary percentage of the whole left panel.
+  report.longPressTarget = { x: (twirl.rect[0] + twirl.rect[2] + 24) * cssPerPoint, y: (y + height / 2) * cssPerPoint };
+  await touch("touchStart", [report.longPressTarget]);
   await pause(650);
   await touch("touchEnd", []);
   await until("effectcraft.request('ui.elements',{prefix:'timeline.layerMenu'}).then(e=>e.length>0)");
