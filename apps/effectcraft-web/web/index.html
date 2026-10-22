@@ -44,6 +44,7 @@
   <div id="loading"><img src="favicon.svg" alt=""><div id="status">Loading EffectCraft…</div></div>
   <script type="module">
     import init, * as ec from "./effectcraft_web.js";
+    import { installTouch, installTouchBar, installAndroidDownloads } from "./touch.js";
     const t0 = performance.now();
     window.effectcraftLoad = {};
     // The agent / test API: the desktop control channel as promises (docs/web.md).
@@ -88,6 +89,12 @@
       // A frame rendered in a frame worker (its GPU by default) vs the page's CPU: {maxDiff, meanDiff, over4, …}.
       workerFrameCheck: (params) => ec.workerFrameCheck(params ?? {}).then(JSON.parse),
     };
+    const touch = new URLSearchParams(location.search).has("android");
+    if (touch) {
+      const canvas = document.getElementById("effectcraft_canvas");
+      installTouchBar(canvas, installTouch(canvas));
+      installAndroidDownloads();
+    }
     // Offline start and install (PWA): the service worker caches the app's files.
     if (!new URLSearchParams(location.search).has("nosw")) {
       try {
@@ -111,6 +118,20 @@
       await init({ module_or_path: module });
       window.effectcraftLoad.wasmMs = performance.now() - t0;
       await ec.start("effectcraft_canvas");
+      if (touch) {
+        // A separate Android origin has no desktop preferences to preserve. Apply conservative
+        // first-run defaults once; subsequent changes in Settings are left alone.
+        try {
+          if (!localStorage.getItem("ecdroid.defaults.v1")) {
+            await window.effectcraft.execute("prefs.set", { values: {
+              "appearance.uiScale": 125, "memory.layerCacheMb": 128,
+              "memory.mediaCacheMb": 128, "memory.previewCacheMb": 128,
+            } });
+            await window.effectcraft.flush();
+            localStorage.setItem("ecdroid.defaults.v1", "1");
+          }
+        } catch (e) { console.warn("Android defaults:", e); }
+      }
       window.effectcraftLoad.readyMs = performance.now() - t0;
     } catch (e) {
       const s = document.getElementById("status");

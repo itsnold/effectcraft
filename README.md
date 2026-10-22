@@ -1,11 +1,16 @@
-<p align="center">
-  <a href="https://getartcraft.com/">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/brand/artcraft-logo-white.svg">
-      <img alt="ArtCraft" src="docs/brand/artcraft-logo.svg" width="200">
-    </picture>
-  </a>
-</p>
+# ECDroid — experimental Android port
+
+Unofficial fork of EffectCraft by the ArtCraft Team. Not affiliated with or endorsed by upstream.
+
+The Android APK bundles the same Rust editor as WebAssembly in an offline WebView, with long-press
+right-click, pinch zoom, two-finger scrolling, touch shortcuts and Android document import/export.
+This is an **alpha tablet/landscape port**, not a fully redesigned mobile editor.
+
+**[Android build, installation, gestures and limitations](docs/android.md)** ·
+**[APK build workflow](../../actions/workflows/android.yml)**
+
+The upstream description below documents the shared engine, not a claim that every feature has
+been tested on Android. Upstream trademark artwork has been removed from this fork.
 
 
 <p align="center">
@@ -372,14 +377,10 @@ Copyright (c) 2026 ArtCraft Team and the EffectCraft contributors. Required noti
 Bundled fonts, icons, images and other assets keep their own open licenses; each one is listed
 with its author, source and license in [ATTRIBUTION.md](ATTRIBUTION.md).
 
-The ArtCraft name, wordmark and logos in [`docs/brand/`](docs/brand/) are trademarks of the
-ArtCraft Team and are not covered by this license. They may be used only unmodified, and only as
-part of this repository and EffectCraft, under [`docs/brand/LICENSE-brand.txt`](docs/brand/LICENSE-brand.txt).
-Forks and modified versions must remove them.
+The upstream ArtCraft trademark artwork is not included in this modified version.
 
 <p align="center">
-  <a href="https://getartcraft.com/"><img alt="ArtCraft" src="docs/brand/artcraft-mark.svg" width="28"></a><br>
-  <sub>Made by the <a href="https://getartcraft.com/">ArtCraft</a> team and community.</sub>
+  <sub>Based on EffectCraft by the <a href="https://getartcraft.com/">ArtCraft</a> team and community.</sub>
 </p>
 
 ## Star history

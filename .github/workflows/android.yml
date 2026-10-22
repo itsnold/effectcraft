@@ -1,0 +1,94 @@
+name: Android APK
+
+on:
+  push:
+    branches: [android]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_BUILD_JOBS: 2
+  CARGO_PROFILE_RELEASE_LTO: "false"
+  CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 16
+
+jobs:
+  rust-gate:
+    name: Upstream Rust quality gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Desktop build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev libxrandr-dev libxcursor-dev libxi-dev libgl1-mesa-dev libgtk-3-dev libdbus-1-dev
+      - uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: android-gate
+      - run: cargo xtask ci
+
+  apk:
+    name: Build and check testing APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Touch and existing browser-host regression tests
+        run: |
+          node apps/effectcraft-web/tests/touch.mjs
+          node apps/effectcraft-web/tests/page.mjs
+          node apps/effectcraft-web/tests/storage.mjs
+          node apps/effectcraft-web/tests/workers.mjs
+      - uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: android-web
+      - name: Install matching WebAssembly binding tool
+        run: cargo install wasm-bindgen-cli --version 0.2.129 --locked
+      - name: Build the editor from this checkout
+        run: cargo xtask web
+      - name: Android-mode browser smoke test
+        run: node apps/effectcraft-web/tests/android-smoke.mjs --dist target/web/dist --chrome google-chrome --out target/android-smoke
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.13"
+      - name: JVM export tests, Android lint, APK assembly
+        run: gradle -p packaging/android :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
+      - name: Checksum
+        working-directory: packaging/android/app/build/outputs/apk/debug
+        run: sha256sum app-debug.apk > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ecdroid-debug
+          path: |
+            packaging/android/app/build/outputs/apk/debug/app-debug.apk
+            packaging/android/app/build/outputs/apk/debug/SHA256SUMS.txt
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-test-reports
+          path: |
+            target/android-smoke/
+            packaging/android/app/build/reports/
+          if-no-files-found: ignore

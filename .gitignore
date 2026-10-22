@@ -5,3 +5,8 @@ target/
 /log
 .DS_Store
 .claude/worktrees/
+/packaging/android/.gradle/
+/packaging/android/**/build/
+/packaging/android/local.properties
+*.keystore
+*.jks
