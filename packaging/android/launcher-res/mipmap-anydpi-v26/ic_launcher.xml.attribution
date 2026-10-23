@@ -5,4 +5,4 @@ source:       original work; artwork from assets/app-icon/effectcraft-1024.png
 license:      MIT OR Apache-2.0
 license-file: assets/app-icon/LICENSE.txt
 added:        2026-10-23 by @itsnold
-notes:        Android adaptive-icon wrapper around the openly licensed unicorn app icon, with a pink background and safe-area inset. PNG is copied at build time; no docs/brand trademark artwork is used.
+notes:        Android adaptive-icon wrapper around the openly licensed unicorn app icon, with a pink background and safe-area inset. XML and PNG are copied to generated resources at build time; this notice ships with the licences, not as an Android image resource. No docs/brand trademark artwork is used.

@@ -109,7 +109,7 @@ configuration from these Apache-2.0 projects:
 
 | Asset | Author | Licence / provenance |
 |---|---|---|
-| `packaging/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml` | EffectCraft contributors; Android layout by @itsnold with GPT-6.1 Sol | MIT OR Apache-2.0; adaptive wrapper around `assets/app-icon/effectcraft-1024.png`, copied at build time under `assets/app-icon/LICENSE.txt` |
+| `packaging/android/launcher-res/mipmap-anydpi-v26/ic_launcher.xml` | EffectCraft contributors; Android layout by @itsnold with GPT-6.1 Sol | MIT OR Apache-2.0; adaptive wrapper around `assets/app-icon/effectcraft-1024.png`, copied at build time under `assets/app-icon/LICENSE.txt` |
 
 The upstream restricted trademark artwork has been removed. The original plain-text "EC" badge
 in `crates/ui-egui/src/header.rs` is original work by the ECDroid contributor (@itsnold), licensed

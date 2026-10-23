@@ -25,8 +25,9 @@ android {
 val bundleLauncherIcon by tasks.registering(Sync::class) {
     val icon = rootProject.file("../../assets/app-icon/effectcraft-1024.png")
     doFirst { check(icon.isFile) { "Missing licensed EffectCraft launcher artwork: $icon" } }
-    into(layout.buildDirectory.dir("generated/icon-res/drawable-nodpi"))
-    from(icon) { rename { "effectcraft_icon.png" } }
+    into(layout.buildDirectory.dir("generated/icon-res"))
+    from(rootProject.file("launcher-res")) { exclude("**/*.attribution") }
+    from(icon) { into("drawable-nodpi"); rename { "effectcraft_icon.png" } }
 }
 
 // Always package the editor built from THIS checkout, never a remote website or release zip.
@@ -47,6 +48,10 @@ val bundleEditor by tasks.registering(Sync::class) {
     from(rootProject.file("../../assets")) {
         include("**/LICENSE*", "**/OFL*", "**/*.attribution")
         into("editor/licenses/assets")
+    }
+    from(rootProject.file("launcher-res")) {
+        include("**/*.attribution")
+        into("editor/licenses/android-launcher")
     }
 }
 tasks.named("preBuild") { dependsOn(bundleEditor, bundleLauncherIcon) }
