@@ -203,6 +203,17 @@ pub fn handle(app: &mut EffectcraftApp, ctx: &egui::Context, req: &ControlReques
             ok(serde_json::to_value(app.auto.query(prefix)).unwrap_or_default())
         }
         "ui.set" => {
+            if let Some(value) = p.get("phonePanel") {
+                if value.is_null() {
+                    app.ui.phone_panel = None;
+                } else if let Some(panel) = value.as_str().and_then(PanelKind::from_name) {
+                    app.ui.phone_panel = Some(panel);
+                    app.ui.focused = panel;
+                    app.ui.start_screen = false;
+                } else {
+                    return err("phonePanel must be a known panel name or null");
+                }
+            }
             if let Some(t) = s("tool") {
                 match Tool::from_name(t) {
                     Some(t) => app.ui.tool = t,

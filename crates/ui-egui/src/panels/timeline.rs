@@ -411,8 +411,13 @@ struct Cols {
     end: f32,
 }
 
-fn cols(x0: f32, width: f32, vis: Vis) -> Cols {
-    let name_w = (width - vis.fixed()).max(120.0);
+fn phone_outline_width(width: f32) -> f32 {
+    let width = if width.is_finite() { width.max(0.0) } else { 0.0 };
+    (width * 0.4).clamp(100.0, 190.0).min(width * 0.5)
+}
+
+fn cols(x0: f32, width: f32, vis: Vis, min_name: f32) -> Cols {
+    let name_w = (width - vis.fixed()).max(min_name);
     let mut x = x0;
     let mut next = |on: bool, w: f32| {
         let at = x;
@@ -1423,19 +1428,24 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
     let fr = comp.frame_rate;
 
     // Geometry.
-    let header_h = 48.0;
+    let phone = app.ui.phone_panel.is_some();
+    let header_h = if phone { 80.0 } else { 48.0 };
     let ruler_h = 34.0;
     let colhdr_h = 22.0;
     let footer_h = 24.0;
-    let vis = Vis::of(&app.ui.timeline);
-    let left_w = (vis.fixed() + 190.0).clamp(420.0, (rect.width() * 0.72).max(420.0));
+    // Keep room for actual time bars on a 320–430px phone. Optional desktop columns are
+    // only hidden while presenting this view; the saved column preferences stay untouched.
+    let vis = if phone { Vis { label: true, ..Default::default() } } else { Vis::of(&app.ui.timeline) };
+    let left_w = if phone { phone_outline_width(rect.width()) } else { (vis.fixed() + 190.0).clamp(420.0, (rect.width() * 0.72).max(420.0)) };
     // Columns wider than the pane scroll horizontally (Shift+wheel / trackpad over the outline,
     // or the scroll bar above the footer); the name column keeps its minimum width.
-    let natural_w = vis.fixed() + 190.0;
+    let natural_w = if phone { left_w } else { vis.fixed() + 190.0 };
     let overflow = (natural_w - left_w).max(0.0);
-    app.ui.timeline.outline_scroll = app.ui.timeline.outline_scroll.clamp(0.0, overflow);
-    let oscroll = app.ui.timeline.outline_scroll;
-    let cw = cols(rect.min.x - oscroll, left_w + overflow, vis);
+    if !phone {
+        app.ui.timeline.outline_scroll = app.ui.timeline.outline_scroll.clamp(0.0, overflow);
+    }
+    let oscroll = if phone { 0.0 } else { app.ui.timeline.outline_scroll };
+    let cw = cols(rect.min.x - oscroll, left_w + overflow, vis, if phone { 60.0 } else { 120.0 });
     let graph_x0 = rect.min.x + left_w + 1.0;
     let graph_x1 = rect.max.x - GUTTER_W;
     ctx.data_mut(|d| d.insert_temp(egui::Id::new("timeline-graph-area"), (graph_x0, graph_x1 - graph_x0)));
@@ -1515,40 +1525,43 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
             ctx.data_mut(|d| d.insert_temp(egui::Id::new("tl-tc-edit"), buf));
         }
     }
-    let sr = Rect::from_min_size(pos2(tc_rect.max.x + 14.0, top + 12.0), vec2((left_w - 420.0).clamp(120.0, 220.0), 22.0));
-    let mut search = app.ui.timeline.search.clone();
-    widgets::search_field(ui, sr, &mut search, "Search", &t);
-    app.ui.timeline.search = search;
-    app.auto.add("timeline.search", sr, "Search");
-    let mut bx = rect.min.x + left_w - 10.0;
-    for (icon, on, id, tip) in [
-        (Icon::Graph, app.ui.timeline.graph_editor, "graph", "Graph Editor"),
-        (Icon::MotionBlur, comp.enable_motion_blur, "motionBlur", "Enables Motion Blur for all layers with the Motion Blur switch set"),
-        (Icon::FrameBlend, comp.enable_frame_blending, "frameBlending", "Enables Frame Blending for all layers with the Frame Blend switch set"),
-        (Icon::Shy, comp.hide_shy, "hideShy", "Hides all layers for which the Shy switch is set"),
-        (Icon::Draft3D, comp.draft_3d, "draft3d", "Draft 3D"),
-        (Icon::Flowchart, false, "flowchart", "Composition Mini-Flowchart"),
-    ] {
-        let r = Rect::from_min_size(pos2(bx - 24.0, top + 11.0), vec2(24.0, 24.0));
-        let resp = widgets::icon_button(ui, r, icon, on, &t, egui::Id::new(("tl-sw", id))).on_hover_text(tip);
-        app.auto.add(&format!("timeline.switch.{id}"), r, tip);
-        if resp.clicked() {
-            match id {
-                "graph" => app.ui.timeline.graph_editor = !app.ui.timeline.graph_editor,
-                "flowchart" => app.show_panel(crate::dock::PanelKind::Flowchart),
-                _ => {
-                    let _ = app.session.execute("comp.setSwitch", json!({"switch": id}));
+    if !phone {
+        let sr = Rect::from_min_size(pos2(tc_rect.max.x + 14.0, top + 12.0), vec2((left_w - 420.0).clamp(120.0, 220.0), 22.0));
+        let mut search = app.ui.timeline.search.clone();
+        widgets::search_field(ui, sr, &mut search, "Search", &t);
+        app.ui.timeline.search = search;
+        app.auto.add("timeline.search", sr, "Search");
+        let mut bx = rect.min.x + left_w - 10.0;
+        for (icon, on, id, tip) in [
+            (Icon::Graph, app.ui.timeline.graph_editor, "graph", "Graph Editor"),
+            (Icon::MotionBlur, comp.enable_motion_blur, "motionBlur", "Enables Motion Blur for all layers with the Motion Blur switch set"),
+            (Icon::FrameBlend, comp.enable_frame_blending, "frameBlending", "Enables Frame Blending for all layers with the Frame Blend switch set"),
+            (Icon::Shy, comp.hide_shy, "hideShy", "Hides all layers for which the Shy switch is set"),
+            (Icon::Draft3D, comp.draft_3d, "draft3d", "Draft 3D"),
+            (Icon::Flowchart, false, "flowchart", "Composition Mini-Flowchart"),
+        ] {
+            let r = Rect::from_min_size(pos2(bx - 24.0, top + 11.0), vec2(24.0, 24.0));
+            let resp = widgets::icon_button(ui, r, icon, on, &t, egui::Id::new(("tl-sw", id))).on_hover_text(tip);
+            app.auto.add(&format!("timeline.switch.{id}"), r, tip);
+            if resp.clicked() {
+                match id {
+                    "graph" => app.ui.timeline.graph_editor = !app.ui.timeline.graph_editor,
+                    "flowchart" => app.show_panel(crate::dock::PanelKind::Flowchart),
+                    _ => {
+                        let _ = app.session.execute("comp.setSwitch", json!({"switch": id}));
+                    }
                 }
             }
+            bx -= 28.0;
         }
-        bx -= 28.0;
     }
 
     // ---- ruler (right).
     let ruler = Rect::from_min_max(pos2(graph_x0, top + header_h - ruler_h), pos2(rect.max.x, top + header_h));
     // The composition marker bin, at the right end of the ruler above the layers' scroll bar.
     let bin = Rect::from_min_max(pos2(graph_x1 + 2.0, ruler.max.y - 16.0), pos2(rect.max.x - 2.0, ruler.max.y - 2.0));
-    let nav = Rect::from_min_max(pos2(graph_x0 + 6.0, top + 6.0), pos2(graph_x1, top + 14.0));
+    let nav_top = top + if phone { 36.0 } else { 6.0 };
+    let nav = Rect::from_min_max(pos2(graph_x0 + 6.0, nav_top), pos2(graph_x1, nav_top + 8.0));
     // Time navigator: the visible span as a grey bar with blue end handles (as in After
     // Effects), over a dark track.
     p.rect_filled(nav, 1.0, t.field_bg);
@@ -1885,7 +1898,7 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
 
     // ---- rows.
     let rows = with_expr_rows(build_rows(app, &comp), &comp, &app.ui.timeline, &ctx);
-    let rh = t.row_h;
+    let rh = if phone { t.row_h.max(32.0) } else { t.row_h };
     let total_h: f32 = rows.iter().map(|r| row_height(r, rh)).sum();
     let max_scroll = (total_h - rows_rect.height() + rh).max(0.0);
     if scroll_to == Some(crate::state::ScrollTo::Layer) {
@@ -1920,7 +1933,7 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
             } else {
                 app.ui.timeline.scroll_y = (app.ui.timeline.scroll_y - dy).clamp(0.0, max_scroll);
             }
-            if dx.abs() > 0.0 && app.ui.timeline.pps.is_some() && !over_outline {
+            if dx.abs() > 0.0 && app.ui.timeline.pps.is_some() && (!over_outline || phone) {
                 app.ui.timeline.start = (app.ui.timeline.start - dx as f64 / pps).max(0.0);
             }
         }
@@ -3270,27 +3283,35 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
         let track = Rect::from_min_max(pos2(rect.max.x - 6.0, rows_rect.min.y + 1.0), pos2(rect.max.x - 2.0, rows_rect.max.y - 1.0));
         app.ui.timeline.scroll_y = widgets::scroll_bar(ui, &mut app.auto, "timeline.scroll", track, app.ui.timeline.scroll_y, max_scroll, &t);
     }
-    let tgl = Rect::from_min_size(pos2(footer.min.x + 10.0, footer.min.y + 3.0), vec2(150.0, 18.0));
-    let tresp = ui.interact(tgl, egui::Id::new("tl-toggle-modes"), Sense::click());
-    p.text(
-        tgl.left_center(),
-        Align2::LEFT_CENTER,
-        crate::i18n::tr("Toggle Switches / Modes"),
-        Tokens::ui(11.0),
-        if tresp.hovered() { t.text } else { t.text_dim },
-    );
-    app.auto.add("timeline.toggleSwitchesModes", tgl, "Toggle Switches / Modes");
-    if tresp.clicked() {
-        app.ui.timeline.show_modes = !app.ui.timeline.show_modes;
+    if phone {
+        let fit = Rect::from_min_size(pos2(footer.min.x + 6.0, footer.min.y + 2.0), vec2((left_w - 12.0).max(0.0), 20.0));
+        if widgets::text_button(ui, fit, "Fit time", false, &t, egui::Id::new("tl-phone-fit")).clicked() {
+            actions.push(("timeline.zoomFit".into(), json!({})));
+        }
+        app.auto.add("timeline.phoneFit", fit, "Zoom to Fit Comp");
+    } else {
+        let tgl = Rect::from_min_size(pos2(footer.min.x + 10.0, footer.min.y + 3.0), vec2(150.0, 18.0));
+        let tresp = ui.interact(tgl, egui::Id::new("tl-toggle-modes"), Sense::click());
+        p.text(
+            tgl.left_center(),
+            Align2::LEFT_CENTER,
+            crate::i18n::tr("Toggle Switches / Modes"),
+            Tokens::ui(11.0),
+            if tresp.hovered() { t.text } else { t.text_dim },
+        );
+        app.auto.add("timeline.toggleSwitchesModes", tgl, "Toggle Switches / Modes");
+        if tresp.clicked() {
+            app.ui.timeline.show_modes = !app.ui.timeline.show_modes;
+        }
+        let ms = app.frames.last_ms.lock().map(|v| *v).unwrap_or(0.0);
+        p.text(
+            pos2(graph_x0 - 12.0, footer.center().y),
+            Align2::RIGHT_CENTER,
+            crate::i18n::tr_args("Frame Render Time  {}ms", &[&format!("{ms:.0}")]),
+            Tokens::ui(11.0),
+            t.text_faint,
+        );
     }
-    let ms = app.frames.last_ms.lock().map(|v| *v).unwrap_or(0.0);
-    p.text(
-        pos2(graph_x0 - 12.0, footer.center().y),
-        Align2::RIGHT_CENTER,
-        crate::i18n::tr_args("Frame Render Time  {}ms", &[&format!("{ms:.0}")]),
-        Tokens::ui(11.0),
-        t.text_faint,
-    );
     // Zoom slider.
     let zs = Rect::from_min_max(pos2(graph_x0 + 30.0, footer.center().y - 2.0), pos2((graph_x0 + 230.0).min(rect.max.x - 30.0), footer.center().y + 2.0));
     // Zoom out / zoom in buttons either side of the slider: the `-` / `=` steps. Everything here
@@ -4433,7 +4454,7 @@ mod tests {
         assert!(set_column(tl, "name", false).is_err());
         assert!(set_column(tl, "bogus", true).is_err());
         let vis = Vis::of(tl);
-        let cw = cols(0.0, 1400.0, vis);
+        let cw = cols(0.0, 1400.0, vis, 120.0);
         // Hidden columns take no room; visible ones are in After Effects' order.
         assert_eq!(cw.keys, cw.label);
         assert_eq!(cw.label, cw.num);
@@ -4449,6 +4470,18 @@ mod tests {
         assert!(!column_visible(&app.ui.timeline, "duration"));
         crate::menus::invoke(&mut app, &ctx, "timeline.sourceName", json!({})).unwrap();
         assert!(app.ui.timeline.source_name);
+    }
+
+    #[test]
+    fn phone_outline_leaves_room_for_time_bars() {
+        for width in [0.0, 1.0, 100.0, 320.0, 390.0, 430.0, 844.0, 1600.0] {
+            let outline = phone_outline_width(width);
+            assert!(outline.is_finite() && outline >= 0.0);
+            assert!(outline <= width * 0.5 && outline <= 190.0, "{width}: {outline}");
+        }
+        for width in [f32::NAN, f32::INFINITY, -100.0] {
+            assert_eq!(phone_outline_width(width), 0.0);
+        }
     }
 
     #[test]

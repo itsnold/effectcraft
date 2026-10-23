@@ -51,6 +51,7 @@ jobs:
       - name: Touch and existing browser-host regression tests
         run: |
           node apps/effectcraft-web/tests/touch.mjs
+          node apps/effectcraft-web/tests/phone.mjs
           node apps/effectcraft-web/tests/page.mjs
           node apps/effectcraft-web/tests/storage.mjs
           node apps/effectcraft-web/tests/workers.mjs

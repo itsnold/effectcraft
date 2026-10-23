@@ -594,6 +594,11 @@ impl EffectcraftApp {
     /// Show panel `p` (opening it in its usual place if it is closed), bring it to the front and
     /// give it the focus: Window ▸ <panel>.
     pub fn show_panel(&mut self, p: PanelKind) {
+        if self.ui.phone_panel.is_some() {
+            self.ui.phone_panel = Some(p);
+            self.ui.focused = p;
+            return;
+        }
         if !self.ui.floating.iter().any(|f| f.panels.contains(&p)) && self.ui.maximized.is_some_and(|m| m != p) {
             self.ui.maximized = None;
         }
@@ -605,6 +610,10 @@ impl EffectcraftApp {
     /// without moving the focus (a comp opening brings up its viewer, an effect applied brings up
     /// Effect Controls).
     pub fn raise_panel(&mut self, p: PanelKind) {
+        if self.ui.phone_panel.is_some() {
+            self.ui.phone_panel = Some(p);
+            return;
+        }
         if self.ui.floating.iter().any(|group| group.panels.contains(&p)) {
             self.edit_layout(|layout| layout.apply(craft_ui::docking::Action::Activate { panel: p }).is_ok());
             return;
@@ -1687,17 +1696,19 @@ impl EffectcraftApp {
         }
         ui.painter().rect_filled(full, 0.0, t.app_bg);
         let mut top = full.min.y;
-        if self.ui.show_menu_bar {
+        if self.ui.show_menu_bar && self.ui.phone_panel.is_none() {
             let mb = egui::Rect::from_min_size(full.min, egui::vec2(full.width(), 24.0));
             let mut child = ui.new_child(egui::UiBuilder::new().max_rect(mb));
             child.painter().rect_filled(mb, 0.0, t.header_bg);
             menus::menu_bar(self, &mut child);
             top = mb.max.y;
         }
-        let header_h = 40.0;
-        let header = egui::Rect::from_min_size(egui::pos2(full.min.x, top), egui::vec2(full.width(), header_h));
-        header::show(self, ui, header);
-        let body = egui::Rect::from_min_max(egui::pos2(full.min.x + 4.0, header.max.y + 2.0), egui::pos2(full.max.x - 4.0, full.max.y - 4.0));
+        if self.ui.phone_panel.is_none() {
+            let header = egui::Rect::from_min_size(egui::pos2(full.min.x, top), egui::vec2(full.width(), 40.0));
+            header::show(self, ui, header);
+            top = header.max.y + 2.0;
+        }
+        let body = egui::Rect::from_min_max(egui::pos2(full.min.x + 4.0, top), egui::pos2(full.max.x - 4.0, full.max.y - 4.0));
         self.dock_area(ui, body);
         #[cfg(not(target_arch = "wasm32"))]
         prefs_live::dropped_files(self, ui, full);

@@ -193,6 +193,13 @@ impl EffectcraftApp {
             panels::home::show(self, &mut child, body);
             return;
         }
+        if let Some(panel) = self.ui.phone_panel {
+            // A presentation-only workspace: never replace or re-save the user's dock tree.
+            self.dock_rects = vec![(panel, body)];
+            ui.painter().rect_filled(body, 0.0, t.panel_bg);
+            self.panel_body(ui, panel, body);
+            return;
+        }
         // The maximized panel fills the area; the tree is kept as it is.
         let maximized = self.ui.maximized.filter(|m| self.ui.dock.contains(*m));
         let mut dock = match maximized {

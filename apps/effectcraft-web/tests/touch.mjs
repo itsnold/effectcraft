@@ -135,6 +135,20 @@ assert.equal(touchTarget(p(200, 100), layout, bounds, 2, "scroll").policy, "scro
 assert.equal(touchTarget(p(30, 100), { ...layout, drags: [[0, 0, 30, 200]] }, bounds, 2).policy, "drag", "panel dividers and tabs retain vertical editing drags");
 assert.equal(touchTarget(p(30, 100), null, bounds, 2).policy, "auto", "before first frame, vertical scrolling is still safe");
 
+const timelineLayout = { pixelsPerPoint: 2.5, scrolls: [[0, 0, 300, 400]] };
+const safeTarget = touchTarget(p(120, 160), timelineLayout, bounds, 2);
+assert.equal(safeTarget.policy, "scroll", "Auto protects timeline bars and keys on both axes");
+gesture.down(1, p(240, 200), safeTarget.policy);
+gesture.move(1, p(140, 202));
+gesture.move(1, p(80, 280));
+gesture.up(1, p(80, 280));
+scroll = events.splice(0);
+assert(scroll.some(e => e.type === "wheel" && e.dx > 0));
+assert(scroll.filter(e => e.type === "wheel").every(e => e.dy === 0), "sideways swipe locks its axis");
+assert(!scroll.some(e => e.type === "down" || e.type === "up"), "scrolling across a key must not press or release it");
+assert.equal(touchTarget(p(120, 160), timelineLayout, bounds, 2, "drag").policy, "drag", "explicit Drag still edits");
+assert.equal(touchTarget(p(120, 160), { ...timelineLayout, overlay: true }, bounds, 2).policy, "auto", "an overlaid dialog keeps value dragging");
+
 // Fresh installs, one-time upgrade from the forced scale, custom settings and failed writes.
 function preferences(initial = {}, scale = 125) {
   const stored = new Map(Object.entries(initial)), writes = [];

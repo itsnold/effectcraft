@@ -35,12 +35,21 @@ pub(crate) fn set_touch_layout(app: &effectcraft_ui_egui::EffectcraftApp, ctx: &
         .filter(|e| e.id.starts_with("dock.gutter.") || e.id.starts_with("panel.tab.") || e.id.starts_with("panel.header."))
         .map(|e| e.rect)
         .collect();
+    let scrolls: Vec<_> = app
+        .auto
+        .elements
+        .iter()
+        .filter(|e| matches!(e.id.as_str(), "panel.Timeline" | "panel.Project" | "panel.MediaBrowser" | "panel.RenderQueue" | "panel.EffectsPresets"))
+        .map(|e| e.rect)
+        .collect();
     let overlay = app.dialog.is_some() || effectcraft_ui_egui::widgets::any_menu_open(ctx);
     TOUCH_LAYOUT.with(|layout| {
         *layout.borrow_mut() = json!({
             "pixelsPerPoint": ctx.pixels_per_point(),
             "viewers": viewers,
             "drags": drags,
+            "scrolls": scrolls,
+            "phonePanel": app.ui.phone_panel,
             "scrollbars": app.auto.scroll_tracks,
             "overlay": overlay,
             "keyboardFocus": ctx.egui_wants_keyboard_input(),

@@ -136,7 +136,8 @@ export function touchTarget(p, layout, bounds, density = 1, mode = "auto") {
     }
   }
   const editing = !layout?.overlay && [...(layout?.viewers || []), ...(layout?.drags || [])].some((rect) => contains(rect));
-  return { policy: mode === "auto" ? (editing ? "drag" : "auto") : mode, offset: { x: 0, y: 0 } };
+  const scrolling = !layout?.overlay && (layout?.scrolls || []).some((rect) => contains(rect));
+  return { policy: mode === "auto" ? (editing ? "drag" : scrolling ? "scroll" : "auto") : mode, offset: { x: 0, y: 0 } };
 }
 
 export function installTouch(canvas, getLayout = () => window.effectcraft?.touchLayout?.()) {
@@ -261,17 +262,22 @@ export function installTouchBar(canvas, { modifiers, controls }) {
     });
     b.setAttribute("aria-pressed", "false");
   }
-  button("Viewer", "Maximize / restore Composition panel", () => invoke("window.maximizePanel", { panel: "Composition" }));
-  button("Timeline", "Maximize / restore Timeline panel", () => invoke("window.maximizePanel", { panel: "Timeline" }));
+  const expand = (panel) => window.effectcraft.touchLayout?.()?.phonePanel
+    ? window.effectcraft.request("ui.set", { phonePanel: panel }) : invoke("window.maximizePanel", { panel });
+  button("Viewer", "Maximize / restore Composition panel", () => expand("Composition"));
+  button("Timeline", "Maximize / restore Timeline panel", () => expand("Timeline"));
   button("Delete", "Delete selected items or layers", () => invoke("edit.clear"));
   button("Help", "Touch controls and Android limitations", () => showTouchError(
-    "Auto: swipe vertically to scroll panels; drag in the viewer to edit. Drag horizontally to adjust values or layer timing. " +
-    "Use Scroll for one-finger scrolling in either direction, or Drag for reordering layers and other vertical edits. " +
+    "Auto: swipe in either direction to scroll the timeline and media/effects lists without moving layers or keys. " +
+    "Pinch to zoom in first if the whole timeline already fits. Swipe over the time bars to move through time. " +
+    "Drag in the viewer to edit. Use Drag mode to move/trim layers, edit keys or reorder media; switch back to Auto to navigate. " +
+    "Use Scroll to force one-finger scrolling elsewhere. " +
     "Tap to select. Hold still for 0.5 seconds for a right-click menu. " +
     "Pinch with two fingers to zoom the timeline or composition; move two fingers together to scroll panels and the timeline. " +
     "Use Hand to pan the composition. Shift enables multi-select; tap it again when finished. " +
     "Viewer / Timeline expands that panel. UI adjusts editor scale; 100% is the default, 75–90% fits more on small screens. " +
-    "Landscape or a tablet is recommended. Save exports an .ecproj; session recovery alone is not a backup. " +
+    "Layout chooses Auto, Phone (one panel at a time) or Tablet. On phones, More opens other panels and Menu searches actions. " +
+    "Save exports an .ecproj; session recovery alone is not a backup. " +
     "Android alpha: small projects first; software rendering and video export can be slow."
   ));
   document.body.append(bar);

@@ -9,7 +9,8 @@ services; the editing engine and codecs are unchanged Rust.
 
 - Android 10 (API 29) or newer, OpenGL ES 3, and a recent **Android System WebView** (Chromium 120+
   recommended; update it through the Play Store). WebAssembly and WebGL2 must be enabled.
-- A tablet or landscape phone is recommended. Start with short, small projects (e.g. 720p).
+- Phones get a compact, single-panel workspace in portrait and landscape; tablets keep the docked
+  workspace. Start with short, small projects (e.g. 720p).
 - In this fork's **Actions → Android APK**, select a successful run and download the `effectcraft-android-debug`
   artifact. Unzip it and install `app-debug.apk`, allowing installation from that source if asked.
   This is a sideloadable **debug-signed testing APK**, not a Play Store production release.
@@ -27,11 +28,17 @@ services; the editing engine and codecs are unchanged Rust.
 
 ## Touch controls
 
+Version **0.1.3-alpha** makes timeline/media/effects-list swipes scroll on **both axes** in Auto,
+without grabbing layer bars or keyframes. Use **Drag** when you actually want to edit or reorder.
+To move through a zoomed timeline, swipe left/right over its time bars. When the whole duration
+already fits, pinch to zoom in first; there is no offscreen time to scroll to at Fit.
+
 | Input | Action |
 |---|---|
 | Tap | Left click / selection |
 | Auto mode: vertical swipe in panels / menus | Scroll without selecting or editing the row underneath |
-| Auto mode: drag in viewer / horizontal drag in panels | Move, scrub, trim layers, adjust values |
+| Auto mode: sideways swipe in timeline / media / effects lists | Scroll, without grabbing layers/keys; timeline names scroll columns on tablets |
+| Auto mode: drag in viewer / horizontal drag in other panels | Move or adjust values |
 | Auto → Scroll → Drag button | Scroll with one finger on either axis, or force editing drags (e.g. reorder layers, resize panel splitters) |
 | Drag a scrollbar / near its track | Scroll; custom tracks have a 24 CSS-pixel touch target |
 | Hold still for 500 ms | Right-click context menu; no initial left click |
@@ -40,7 +47,7 @@ services; the editing engine and codecs are unchanged Rust.
 | Hand + drag | Pan composition |
 | Shift toggle + tap/drag | Multi-select / constrained editing |
 | Alt / Ctrl toggles | Modified gestures otherwise needing a keyboard |
-| Viewer / Timeline buttons | Maximize / restore that panel |
+| Viewer / Timeline buttons | Maximize / restore on tablets; switch the main panel on phones |
 | Fit | Fit composition and reset pan |
 
 The bottom shortcut bar scrolls horizontally and has 48 × 44 CSS-pixel minimum buttons: Undo,
@@ -53,12 +60,30 @@ migrate once to 100%; other custom scales are kept. Layer, footage and preview c
 128 MiB each; upgrading does not reset cache preferences. These limits do not bound codec or
 worker memory. WebView text/page zoom is disabled so it cannot magnify the canvas a second time.
 In Auto, panel tabs and dividers still drag to move/resize. Use Drag for vertical editing
-gestures such as reordering layer names; use two fingers or Scroll for horizontal list scrolling.
+gestures such as reordering layer names or moving/retiming keys. Use Auto to return to safe navigation.
 Mouse and pen input retain their native event path. Gesture movement locks to its initial scroll
 axis and originating panel, preventing accidental edits or scrolling a neighbouring panel. Rotate,
 app-switch, lost pointer capture and cancellation release active gestures and clear stale hover.
 Lifting one finger after a pinch cannot become an accidental
 click. Adding a second finger during an already-started drag ends that drag; it does not undo it.
+
+## Phone workspace
+
+- **Preview, Timeline, Media, Effects** bottom tabs show one full-width panel at a time; **More**
+  opens Effect Controls, Properties, Text, Paragraph, Export Queue and other panels.
+- **Menu** searches the editor's actions (e.g. New Composition, New Text, Settings, Render). Import,
+  Play, Undo and Save are always at the top; precision tools and **Auto / Scroll / Drag** stay in the
+  horizontally scrollable shortcut bar below the tabs.
+- The timeline uses a narrower layer-name column and taller rows instead of squeezing desktop
+  switches, search and parent columns over the time bars. Desktop column preferences are preserved.
+  **Fit time** returns to the composition's full duration. Optional columns remain accessible in
+  Tablet layout.
+- **Layout → Auto / Phone / Tablet** overrides automatic detection and is remembered locally.
+  Auto selects Phone for windows narrower than 600 CSS pixels or screens with a shortest side below
+  600 CSS pixels, so rotating a phone or opening its keyboard does not switch it to the tablet dock.
+- Phone presentation does not replace/save the desktop dock, floating groups or maximized panel.
+  Returning to Tablet restores those. New-project dialogs and several specialist panels still use
+  desktop controls; this is not a complete redesign of every editor dialog.
 
 ## Files, privacy and recovery
 
@@ -89,6 +114,7 @@ The Gradle project deliberately lives under `packaging/`, outside Cargo's `apps/
 rustup target add wasm32-unknown-unknown
 cargo install wasm-bindgen-cli --version 0.2.129 --locked
 node apps/effectcraft-web/tests/touch.mjs
+node apps/effectcraft-web/tests/phone.mjs
 node apps/effectcraft-web/tests/touch-browser.mjs --chrome google-chrome
 cargo xtask ci
 cargo xtask web
@@ -111,8 +137,9 @@ failures; inspect **both** jobs before distributing an artifact.
 ## Known limitations / what is not promised
 
 - This is a WebView/WASM port, **not** a native Android NDK port or a CapCut Pad clone. No Android
-  hardware video encoder/decoder integration, background rendering service or fully adaptive phone
-  workspace has been added. Desktop engine limitations still apply.
+  hardware video encoder/decoder integration or background rendering service has been added.
+  Phone navigation/timeline are adapted; many specialist panels/dialogs are still desktop-oriented.
+  Desktop engine limitations still apply.
 - Android WebView WebGPU support varies, so WebGL2/CPU fallback must be usable. One CPU frame worker
   is requested instead of the desktop's two GPU workers, reducing memory/driver pressure. Heavy
   effects, large media, frame caches and software codecs can still exhaust memory or be very slow.

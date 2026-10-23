@@ -55,6 +55,26 @@ async function until(expression, timeout = 120000) {
 async function touch(type, points) {
   await send("Input.dispatchTouchEvent", { type, touchPoints: points.map((p, i) => ({ id: i + 1, radiusX: 2, radiusY: 2, ...p })) });
 }
+async function sidewaysOverKey() {
+  await js("effectcraft.request('ui.set',{timeline:{pps:innerWidth<600?100:300,start:0}})");
+  await pause(200);
+  const key = (await js("effectcraft.request('ui.elements',{prefix:'timeline.key.'})")).find(e => e.rect[2] > 0);
+  assert(key, "a real keyframe is visible for the scrolling regression");
+  const bounds = await js("(()=>{const r=document.querySelector('canvas').getBoundingClientRect();return {x:r.x,y:r.y}})()");
+  const ratio = await js("effectcraft.inspect().then(i=>i.pixelsPerPoint/devicePixelRatio)");
+  const point = { x: bounds.x + (key.rect[0] + key.rect[2] / 2) * ratio, y: bounds.y + (key.rect[1] + key.rect[3] / 2) * ratio };
+  const before = await js("effectcraft.inspect()");
+  const documentBefore = await js("Promise.all([effectcraft.execute('comp.info'),effectcraft.execute('layer.tree')])");
+  await touch("touchStart", [point]);
+  for (let n = 1; n <= 5; n++) { await touch("touchMove", [{ x: point.x - n * 20, y: point.y + n }]); await pause(30); }
+  await touch("touchEnd", []); await pause(250);
+  const after = await js("effectcraft.inspect()");
+  assert(after.ui.timeline.start > before.ui.timeline.start + 0.15, "horizontal swipe over a key scrolls through time");
+  assert.deepEqual(after.selectedLayers, before.selectedLayers, "swipe does not select a layer");
+  assert.equal(after.selectedKeys, before.selectedKeys, "swipe does not select a key");
+  assert.deepEqual(await js("Promise.all([effectcraft.execute('comp.info'),effectcraft.execute('layer.tree')])"), documentBefore, "layer timing and keyframes are unchanged");
+  return after.ui.timeline.start;
+}
 const deadline = setTimeout(() => { console.error("Android smoke test exceeded 5 minutes"); chrome.kill(); process.exit(1); }, 300000);
 try {
   let page;
@@ -138,6 +158,10 @@ try {
   report.longPressMenu = true;
   console.log("Touch bar and real-touch long-press menu passed");
   await js("effectcraft.request('ui.key',{key:'Escape'})");
+  await js("effectcraft.execute('layer.newNull',{name:'Sideways gesture guard'})");
+  await js("effectcraft.execute('prop.addKey',{path:'transform/opacity',time:1,value:100})");
+  await js("effectcraft.request('ui.menu.invoke',{id:'timeline.reveal.opacity'})");
+  report.sidewaysOverKey = await sidewaysOverKey();
   // Make the timeline genuinely overflow, then swipe on a layer name. No synthetic
   // UI scroll command: only CDP finger input may change the scroll offset.
   await js("(async()=>{for(let i=0;i<45;i++)await effectcraft.execute('layer.newNull',{name:'Touch scroll '+i})})()");
@@ -184,9 +208,36 @@ try {
   report.saved = saved;
   await js("effectcraft.flush()");
   await writeFile(join(out, "tablet.png"), Buffer.from((await send("Page.captureScreenshot", { format: "png" })).data, "base64"));
-  await send("Emulation.setDeviceMetricsOverride", { width: 800, height: 450, deviceScaleFactor: 1, mobile: true });
+  const tabletUi = (await js("effectcraft.inspect()")).ui;
+  await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await until("effectcraft.touchLayout()?.phonePanel==='Composition'");
+  await js("document.querySelector('#phone-nav button[aria-label=Timeline]').click()");
+  await until("effectcraft.touchLayout()?.phonePanel==='Timeline'");
+  await js("effectcraft.execute('layer.select',{layers:['Sideways gesture guard']})");
+  // Reveal is a toggle; select the keyed property directly instead of hiding a previous reveal.
+  await js("effectcraft.execute('prop.select',{path:'transform/opacity'})");
+  await js("effectcraft.request('ui.menu.invoke',{id:'timeline.reveal.selected'})");
+  await js("effectcraft.request('ui.menu.invoke',{id:'timeline.scrollToLayer'})");
+  report.phoneSidewaysOverKey = await sidewaysOverKey();
+  const phoneRuler = (await js("effectcraft.request('ui.elements',{prefix:'timeline.ruler'})"))[0];
+  assert(phoneRuler.rect[2] > 180, "compact outline leaves useful space for time bars");
+  await writeFile(join(out, "phone-portrait.png"), Buffer.from((await send("Page.captureScreenshot", { format: "png" })).data, "base64"));
+  for (const [label, panel] of [["Media", "Project"], ["Effects", "EffectsPresets"], ["Preview", "Composition"]]) {
+    await js(`document.querySelector('#phone-nav button[aria-label=${label}]').click()`);
+    await until(`effectcraft.touchLayout()?.phonePanel==='${panel}'`);
+    assert((await js(`effectcraft.request('ui.elements',{prefix:'panel.${panel}'})`)).length > 0, `${label} tab shows its panel`);
+  }
+  await send("Emulation.setDeviceMetricsOverride", { width: 844, height: 390, deviceScaleFactor: 1, mobile: true });
   await pause(300);
+  assert.equal(await js("effectcraft.touchLayout()?.phonePanel"), "Composition", "phone layout survives landscape rotation");
   await writeFile(join(out, "phone-landscape.png"), Buffer.from((await send("Page.captureScreenshot", { format: "png" })).data, "base64"));
+  await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: true });
+  await until("effectcraft.touchLayout()?.phonePanel===null");
+  const restoredUi = (await js("effectcraft.inspect()")).ui;
+  assert.deepEqual(restoredUi.dock, tabletUi.dock, "returning to tablet restores the original dock");
+  assert.deepEqual(restoredUi.floating, tabletUi.floating);
+  assert.equal(restoredUi.maximized, tabletUi.maximized);
+  report.phonePanelsAndRotation = true;
   assert.equal(errors.length, 0, JSON.stringify(errors));
   console.log("Android-mode editor: startup, storage, touch bar, long press, pinch, save bridge and resize passed");
 } catch (error) {

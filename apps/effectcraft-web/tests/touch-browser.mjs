@@ -10,13 +10,17 @@ const chromeAt = process.argv.indexOf("--chrome");
 const executable = chromeAt < 0 ? "google-chrome" : process.argv[chromeAt + 1];
 const profile = await mkdtemp(join(tmpdir(), "ec-touch-"));
 const source = await readFile(new URL("../web/touch.js", import.meta.url));
+const phoneSource = await readFile(new URL("../web/phone.js", import.meta.url));
 const html = `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>body{margin:0}canvas{position:absolute;inset:0;width:100%;height:100%}</style>
 <canvas id="effectcraft_canvas"></canvas><script type="module">
 import { installTouch, installTouchBar, dismissTouchOverlay } from '/touch.js';
 window.events=[];window.calls=[];window.scale=100;
-window.layout={pixelsPerPoint:devicePixelRatio,viewers:[[200,0,400,500]],scrollbars:[[620,40,4,400]],overlay:false};
-window.effectcraft={dismissTouchOverlay,touchLayout:()=>layout,request:async(...a)=>calls.push(a),
+window.layout={pixelsPerPoint:devicePixelRatio,viewers:[[200,0,400,500]],scrolls:[[0,0,200,500]],scrollbars:[[620,40,4,400]],overlay:false};
+window.effectcraft={dismissTouchOverlay,touchLayout:()=>layout,request:async(...a)=>{
+ calls.push(a);if(a[0]==='ui.set'&&'phonePanel' in a[1])layout.phonePanel=a[1].phonePanel;
+ if(a[0]==='ui.menu.list')return [{id:'comp.new',label:'New Composition',path:['Composition'],enabled:true}];
+},
  execute:async(id,p)=>id==='prefs.get'?scale:(scale=p.values['appearance.uiScale']),flush:async()=>{}};
 const canvas=document.querySelector('canvas');
 window.adapter=installTouch(canvas);installTouchBar(canvas,adapter);
@@ -25,7 +29,7 @@ for(const type of ['pointerdown','pointerup','mousemove','wheel','mouseleave'])
  buttons:e.buttons,button:e.button,dx:e.deltaX,dy:e.deltaY,ctrl:e.ctrlKey,shift:e.shiftKey,alt:e.altKey,trusted:e.isTrusted}));
 window.ready=true;
 </script>`;
-const server = createServer((req, res) => res.writeHead(200, {"Content-Type": req.url === "/touch.js" ? "text/javascript" : "text/html"}).end(req.url === "/touch.js" ? source : html));
+const server = createServer((req, res) => res.writeHead(200, {"Content-Type": req.url?.endsWith(".js") ? "text/javascript" : "text/html"}).end(req.url === "/touch.js" ? source : req.url === "/phone.js" ? phoneSource : html));
 await new Promise(r => server.listen(0, "127.0.0.1", r));
 const chrome = spawn(executable, ["--headless=new", "--no-sandbox", "--no-first-run", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "about:blank"], {stdio:["ignore","ignore","pipe"]});
 let stderr="", ws, seq=0;
@@ -62,7 +66,10 @@ try {
  await swipe({x:100,y:300},{x:103,y:180});
  let events=await js("events.splice(0)");
  assert(events.some(e=>e.type==='wheel'&&e.dy>0&&e.dx===0));
- assert(!events.some(e=>e.type==='pointerdown'),"panel swipe must not press a widget");
+  assert(!events.some(e=>e.type==='pointerdown'),"panel swipe must not press a widget");
+  await swipe({x:180,y:300},{x:50,y:302});events=await js("events.splice(0)");
+  assert(events.some(e=>e.type==='wheel'&&e.dx>0&&e.dy===0),"Auto scrolls sideways in timeline/list regions");
+  assert(!events.some(e=>e.type==='pointerdown'),"sideways scrolling cannot grab a layer or key");
  await swipe({x:300,y:300},{x:300,y:180});events=await js("events.splice(0)");
  assert.equal(events.filter(e=>e.type==='pointerdown'&&e.pointerType==='mouse').length,1);
  assert(events.some(e=>e.type==='mousemove'&&e.buttons===1));
@@ -114,7 +121,29 @@ try {
  await js("layout.overlay=true");assert.equal(await js("effectcraft.dismissTouchOverlay()"),true);
  assert.equal(await js("calls.at(-1)[1].key"),'Escape');
  await js("layout.overlay=false;layout.keyboardFocus=true");assert.equal(await js("effectcraft.dismissTouchOverlay()"),true);
- await js("layout.keyboardFocus=false");assert.equal(await js("effectcraft.dismissTouchOverlay()"),false);
+  await js("layout.keyboardFocus=false");assert.equal(await js("effectcraft.dismissTouchOverlay()"),false);
+  // Phone chrome, tab selection, searchable menu and rotation use the actual DOM.
+  await js("window.phone=(await import('/phone.js')).installPhoneWorkspace(effectcraft);await phone.start()");
+  await send("Emulation.setDeviceMetricsOverride",{width:390,height:844,deviceScaleFactor:2,mobile:true});
+  await pause(100);
+  assert.equal(await js("document.documentElement.dataset.phoneLayout"),'true');
+  await js("document.querySelector('#phone-nav button[aria-label=Timeline]').click()");await pause(100);
+  assert.equal(await js("layout.phonePanel"),'Timeline');
+  const canvasBox=await js("(()=>{const r=document.querySelector('canvas').getBoundingClientRect();return {top:r.top,bottom:r.bottom,width:r.width}})()");
+  assert.equal(canvasBox.top,68);assert.equal(canvasBox.bottom,744);assert.equal(canvasBox.width,390);
+  await js("document.querySelector('#phone-toolbar button[aria-label=Menu]').click()");await pause(100);
+  assert.equal(await js("document.querySelector('#phone-commands button').textContent"),'New CompositionComposition');
+  await js("document.querySelector('#phone-commands button').click()");await pause(100);
+  assert.equal(await js("calls.at(-1)[1].id"),'comp.new');
+  await send("Emulation.setDeviceMetricsOverride",{width:844,height:390,deviceScaleFactor:2,mobile:true});await pause(100);
+  assert.equal(await js("document.documentElement.dataset.phoneLayout"),'true');
+  assert.equal(await js("layout.phonePanel"),'Timeline',"rotation keeps the current phone panel");
+  await js("document.querySelector('#phone-nav button[aria-label=More]').click()");await pause(50);
+  await js("[...document.querySelectorAll('#touch-error button')].find(b=>b.textContent==='Tablet layout').click()");await pause(100);
+  assert.equal(await js("layout.phonePanel"),null);assert.equal(await js("document.documentElement.dataset.phoneLayout"),'false');
+  await js("phone.controller.setMode('auto')");
+  await send("Emulation.setDeviceMetricsOverride",{width:1280,height:800,deviceScaleFactor:2,mobile:true});await pause(100);
+  assert.equal(await js("document.documentElement.dataset.phoneLayout"),'false');
  assert.equal(errors.length,0,JSON.stringify(errors));
  console.log("touch browser: real finger swipes, viewer/scrollbar drags, overrides, pinch, modifiers, blur, mouse/pen, shortcut-bar scrolling scale picker and Back dismissal passed");
 } finally {

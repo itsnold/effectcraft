@@ -45,6 +45,7 @@
   <script type="module">
     import init, * as ec from "./effectcraft_web.js";
     import { installTouch, installTouchBar, installAndroidDownloads, applyAndroidDefaults, dismissTouchOverlay } from "./touch.js";
+    import { installPhoneWorkspace } from "./phone.js";
     const t0 = performance.now();
     window.effectcraftLoad = {};
     // The agent / test API: the desktop control channel as promises (docs/web.md).
@@ -92,10 +93,12 @@
       workerFrameCheck: (params) => ec.workerFrameCheck(params ?? {}).then(JSON.parse),
     };
     const touch = new URLSearchParams(location.search).has("android");
+    let phone;
     if (touch) {
       const canvas = document.getElementById("effectcraft_canvas");
       installTouchBar(canvas, installTouch(canvas));
       installAndroidDownloads();
+      phone = installPhoneWorkspace(window.effectcraft);
     }
     // Offline start and install (PWA): the service worker caches the app's files.
     if (!new URLSearchParams(location.search).has("nosw")) {
@@ -128,6 +131,10 @@
         } catch (e) { console.warn("Android defaults:", e); }
       }
       window.effectcraftLoad.readyMs = performance.now() - t0;
+      if (phone) {
+        try { await phone.start(); }
+        catch (e) { console.warn("Phone workspace:", e); }
+      }
     } catch (e) {
       const s = document.getElementById("status");
       if (s) { s.className = "err"; s.textContent = "EffectCraft failed to start:\n" + (e && e.stack || e); }
