@@ -32,6 +32,15 @@ fn phone_panels_do_not_replace_dock_or_column_preferences() {
             let ruler = h.state().auto.find("timeline.ruler").unwrap().rect;
             assert!(ruler[2] > 180.0, "time area stays usable at phone width: {ruler:?}");
             assert!(ruler[0] < 200.0, "outline cannot consume the whole screen");
+            let zoom_in = h.state().auto.find("timeline.zoomInButton").unwrap().rect;
+            let zoom_out = h.state().auto.find("timeline.zoomOutButton").unwrap().rect;
+            let slider = h.state().auto.find("timeline.zoomSlider.control").unwrap().rect;
+            assert_eq!(zoom_in[2], 44.0);
+            assert_eq!(zoom_in[3], 44.0);
+            assert_eq!(slider[3], 44.0);
+            assert!(zoom_out[0] + zoom_out[2] <= slider[0] && slider[0] + slider[2] <= zoom_in[0], "phone zoom targets do not overlap");
+            let scrub = h.state().auto.find("timeline.scrub").unwrap().rect;
+            assert_eq!(scrub[1], ruler[1], "the ruler's upper portion scrubs too");
         }
     }
     // Internal commands bring the relevant panel forward too, without opening a desktop dock.
@@ -51,8 +60,11 @@ fn phone_panels_do_not_replace_dock_or_column_preferences() {
     assert_eq!(after["timeline"]["columns"], original["timeline"]["columns"]);
     assert_eq!(after["timeline"]["show_modes"], original["timeline"]["show_modes"]);
     assert!(h.state().auto.find("menu.File").is_some(), "tablet chrome returns");
-    // The dock still points to the screen after a round-trip through phone mode.
-    assert!(h.state().panel_at(Some(pos2(200.0, 300.0))) != PanelKind::Properties);
+    // Hit a known panel body, not an arbitrary screen point which could be over a gutter
+    // (panel_at intentionally returns the focused panel when no dock rectangle is hit).
+    let timeline = h.state().auto.find("panel.Timeline").unwrap().rect;
+    let center = pos2(timeline[0] + timeline[2] * 0.5, timeline[1] + timeline[3] * 0.5);
+    assert_eq!(h.state().panel_at(Some(center)), PanelKind::Timeline);
 }
 
 #[test]

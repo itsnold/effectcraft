@@ -16,7 +16,8 @@ const html = `<!doctype html><meta name="viewport" content="width=device-width,i
 <canvas id="effectcraft_canvas"></canvas><script type="module">
 import { installTouch, installTouchBar, dismissTouchOverlay } from '/touch.js';
 window.events=[];window.calls=[];window.scale=100;
-window.layout={pixelsPerPoint:devicePixelRatio,viewers:[[200,0,400,500]],scrolls:[[0,0,200,500]],scrollbars:[[620,40,4,400]],overlay:false};
+window.layout={pixelsPerPoint:devicePixelRatio,viewers:[[200,0,400,500]],scrolls:[[0,0,200,500]],
+ controls:[[0,20,200,34]],controlTracks:[[20,480,160,4]],scrollbars:[[620,40,4,400]],overlay:false};
 window.effectcraft={dismissTouchOverlay,touchLayout:()=>layout,request:async(...a)=>{
  calls.push(a);if(a[0]==='ui.set'&&'phonePanel' in a[1])layout.phonePanel=a[1].phonePanel;
  if(a[0]==='ui.menu.list')return [{id:'comp.new',label:'New Composition',path:['Composition'],enabled:true}];
@@ -69,7 +70,15 @@ try {
   assert(!events.some(e=>e.type==='pointerdown'),"panel swipe must not press a widget");
   await swipe({x:180,y:300},{x:50,y:302});events=await js("events.splice(0)");
   assert(events.some(e=>e.type==='wheel'&&e.dx>0&&e.dy===0),"Auto scrolls sideways in timeline/list regions");
-  assert(!events.some(e=>e.type==='pointerdown'),"sideways scrolling cannot grab a layer or key");
+   assert(!events.some(e=>e.type==='pointerdown'),"sideways scrolling cannot grab a layer or key");
+  await swipe({x:50,y:35},{x:150,y:35});events=await js("events.splice(0)");
+  assert(events.some(e=>e.type==='pointerdown'&&e.pointerType==='mouse'),"Auto allows ruler/playhead scrubbing");
+  assert(events.some(e=>e.type==='mousemove'&&e.buttons===1));
+  assert(!events.some(e=>e.type==='wheel'),"scrubbing must not scroll");
+  await swipe({x:40,y:475},{x:140,y:475});events=await js("events.splice(0)");
+  assert(events.some(e=>e.type==='pointerdown'&&e.y===482),"nearby zoom track is a real drag, snapped onto the slider");
+  assert(events.some(e=>e.type==='mousemove'&&e.buttons===1&&e.y===482));
+  assert(!events.some(e=>e.type==='wheel'));
  await swipe({x:300,y:300},{x:300,y:180});events=await js("events.splice(0)");
  assert.equal(events.filter(e=>e.type==='pointerdown'&&e.pointerType==='mouse').length,1);
  assert(events.some(e=>e.type==='mousemove'&&e.buttons===1));
@@ -135,6 +144,11 @@ try {
   assert.equal(await js("document.querySelector('#phone-commands button').textContent"),'New CompositionComposition');
   await js("document.querySelector('#phone-commands button').click()");await pause(100);
   assert.equal(await js("calls.at(-1)[1].id"),'comp.new');
+  for(const [label,id] of [['Zoom timeline in','timeline.zoomIn'],['Zoom timeline out','timeline.zoomOut'],
+   ['Fit the whole composition in the timeline','timeline.zoomFit'],['Move playhead one frame forward','time.nextFrame'],['Move playhead one frame backward','time.previousFrame']]) {
+   await js(`document.querySelector('#touch-bar button[aria-label="${label}"]').click()`);await pause(30);
+   assert.equal(await js("calls.at(-1)[1].id"),id);
+  }
   await send("Emulation.setDeviceMetricsOverride",{width:844,height:390,deviceScaleFactor:2,mobile:true});await pause(100);
   assert.equal(await js("document.documentElement.dataset.phoneLayout"),'true');
   assert.equal(await js("layout.phonePanel"),'Timeline',"rotation keeps the current phone panel");

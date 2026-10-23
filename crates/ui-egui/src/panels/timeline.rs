@@ -1432,7 +1432,7 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
     let header_h = if phone { 80.0 } else { 48.0 };
     let ruler_h = 34.0;
     let colhdr_h = 22.0;
-    let footer_h = 24.0;
+    let footer_h = if phone { 44.0 } else { 24.0 };
     // Keep room for actual time bars on a 320–430px phone. Optional desktop columns are
     // only hidden while presenting this view; the saved column preferences stay untouched.
     let vis = if phone { Vis { label: true, ..Default::default() } } else { Vis::of(&app.ui.timeline) };
@@ -1738,8 +1738,9 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
     }
     // Scrub in the ruler: the current time jumps to the pointer as soon as the button goes down
     // (After Effects), then follows it.
-    let rresp =
-        ui.interact(Rect::from_min_max(pos2(graph_x0, ruler.min.y + 12.0), pos2(bin.min.x, ruler.max.y)), egui::Id::new("tl-ruler"), Sense::click_and_drag());
+    let scrub = Rect::from_min_max(ruler.min, pos2(bin.min.x, ruler.max.y));
+    let rresp = ui.interact(scrub, egui::Id::new("tl-ruler"), Sense::click_and_drag());
+    app.auto.add("timeline.scrub", scrub, "Drag to move playhead");
     if ((rresp.is_pointer_button_down_on() && ui.input(|i| i.pointer.primary_down())) || rresp.clicked())
         && let Some(pt) = rresp.interact_pointer_pos()
     {
@@ -3284,7 +3285,7 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
         app.ui.timeline.scroll_y = widgets::scroll_bar(ui, &mut app.auto, "timeline.scroll", track, app.ui.timeline.scroll_y, max_scroll, &t);
     }
     if phone {
-        let fit = Rect::from_min_size(pos2(footer.min.x + 6.0, footer.min.y + 2.0), vec2((left_w - 12.0).max(0.0), 20.0));
+        let fit = Rect::from_min_size(pos2(footer.min.x + 6.0, footer.min.y + 2.0), vec2((left_w - 12.0).max(0.0), footer_h - 4.0));
         if widgets::text_button(ui, fit, "Fit time", false, &t, egui::Id::new("tl-phone-fit")).clicked() {
             actions.push(("timeline.zoomFit".into(), json!({})));
         }
@@ -3313,16 +3314,22 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
         );
     }
     // Zoom slider.
-    let zs = Rect::from_min_max(pos2(graph_x0 + 30.0, footer.center().y - 2.0), pos2((graph_x0 + 230.0).min(rect.max.x - 30.0), footer.center().y + 2.0));
+    let zoom_margin = if phone { 50.0_f32.min((graph_x1 - graph_x0).max(0.0) * 0.25) } else { 30.0 };
+    let zs = Rect::from_min_max(
+        pos2(graph_x0 + zoom_margin, footer.center().y - 2.0),
+        pos2((graph_x0 + 230.0).min(rect.max.x - zoom_margin), footer.center().y + 2.0),
+    );
     // Zoom out / zoom in buttons either side of the slider: the `-` / `=` steps. Everything here
     // zooms around the CTI and sets the one time zoom the layer bars and the Graph Editor share.
     let cti = time.seconds();
     let cti_px = (cti - tm.start) * pps;
+    let zoom_button_offset = if phone { 25.0 } else { 14.0 };
     for (icon, size, cx, id, tip, k) in [
-        (Icon::MountainSmall, 14.0, zs.min.x - 14.0, "timeline.zoomOutButton", "Zoom Out (Time)", 1.0 / ZOOM_STEP),
-        (Icon::MountainLarge, 16.0, zs.max.x + 14.0, "timeline.zoomInButton", "Zoom In (Time)", ZOOM_STEP),
+        (Icon::MountainSmall, 14.0, zs.min.x - zoom_button_offset, "timeline.zoomOutButton", "Zoom Out (Time)", 1.0 / ZOOM_STEP),
+        (Icon::MountainLarge, 16.0, zs.max.x + zoom_button_offset, "timeline.zoomInButton", "Zoom In (Time)", ZOOM_STEP),
     ] {
-        let r = Rect::from_center_size(pos2(cx, footer.center().y), vec2(20.0, 20.0));
+        let button_size = if phone { 44.0 } else { 20.0 };
+        let r = Rect::from_center_size(pos2(cx, footer.center().y), vec2(button_size, button_size));
         let resp = ui.interact(r, egui::Id::new(id), Sense::click()).on_hover_text(crate::i18n::tr(tip));
         icons::paint(&p, Rect::from_center_size(r.center(), vec2(size, size)), icon, if resp.hovered() { t.text } else { t.text_dim });
         app.auto.add(id, r, tip);
@@ -3336,8 +3343,10 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
     let knob = pos2(zs.min.x + zs.width() * frac, zs.center().y);
     p.circle_filled(knob, 6.0, t.text);
     // Drag the knob, or click the track to jump there.
-    let zresp = ui.interact(zs.expand2(vec2(6.0, 8.0)), egui::Id::new("tl-zoom"), Sense::click_and_drag());
+    let zoom_hit = zs.expand2(if phone { vec2(0.0, 20.0) } else { vec2(6.0, 8.0) });
+    let zresp = ui.interact(zoom_hit, egui::Id::new("tl-zoom"), Sense::click_and_drag());
     app.auto.add("timeline.zoomSlider", zs, "Zoom");
+    app.auto.add("timeline.zoomSlider.control", zoom_hit, "Drag to zoom time");
     if (zresp.dragged() || zresp.clicked())
         && let Some(pt) = zresp.interact_pointer_pos()
     {

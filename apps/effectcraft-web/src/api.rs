@@ -42,6 +42,17 @@ pub(crate) fn set_touch_layout(app: &effectcraft_ui_egui::EffectcraftApp, ctx: &
         .filter(|e| matches!(e.id.as_str(), "panel.Timeline" | "panel.Project" | "panel.MediaBrowser" | "panel.RenderQueue" | "panel.EffectsPresets"))
         .map(|e| e.rect)
         .collect();
+    // Only timeline navigation controls bypass safe layer/key scrolling. Never include the
+    // playhead's line through the rows: touching a key under it must still scroll safely.
+    let controls: Vec<_> = app
+        .auto
+        .elements
+        .iter()
+        .filter(|e| matches!(e.id.as_str(), "timeline.scrub" | "timeline.timecode" | "timeline.zoomSlider.control") || e.id.starts_with("timeline.navigator"))
+        .map(|e| e.rect)
+        .collect();
+    let control_tracks: Vec<_> =
+        app.auto.elements.iter().filter(|e| matches!(e.id.as_str(), "timeline.zoomSlider" | "timeline.navigator")).map(|e| e.rect).collect();
     let overlay = app.dialog.is_some() || effectcraft_ui_egui::widgets::any_menu_open(ctx);
     TOUCH_LAYOUT.with(|layout| {
         *layout.borrow_mut() = json!({
@@ -49,6 +60,8 @@ pub(crate) fn set_touch_layout(app: &effectcraft_ui_egui::EffectcraftApp, ctx: &
             "viewers": viewers,
             "drags": drags,
             "scrolls": scrolls,
+            "controls": controls,
+            "controlTracks": control_tracks,
             "phonePanel": app.ui.phone_panel,
             "scrollbars": app.auto.scroll_tracks,
             "overlay": overlay,

@@ -28,6 +28,13 @@ services; the editing engine and codecs are unchanged Rust.
 
 ## Touch controls
 
+Version **0.1.4-alpha** keeps timeline navigation draggable in Auto: drag the **time ruler or
+playhead head** to scrub to a frame, the bottom **time-zoom slider** to change scale, or the top
+**navigator handles** to resize the visible time span. These exceptions do not include the
+playhead's line through layer rows: swiping across a layer/key underneath it still scrolls safely.
+The shortcut bar also provides **Time − / Time + / Fit time** and **Frame ‹ / Frame ›** for exact
+one-frame positioning. Two-finger pinch over the timeline's rows zooms its time scale.
+
 Version **0.1.3-alpha** makes timeline/media/effects-list swipes scroll on **both axes** in Auto,
 without grabbing layer bars or keyframes. Use **Drag** when you actually want to edit or reorder.
 To move through a zoomed timeline, swipe left/right over its time bars. When the whole duration
@@ -39,6 +46,10 @@ already fits, pinch to zoom in first; there is no offscreen time to scroll to at
 | Auto mode: vertical swipe in panels / menus | Scroll without selecting or editing the row underneath |
 | Auto mode: sideways swipe in timeline / media / effects lists | Scroll, without grabbing layers/keys; timeline names scroll columns on tablets |
 | Auto mode: drag in viewer / horizontal drag in other panels | Move or adjust values |
+| Auto mode: drag timeline ruler / playhead head | Scrub current time, snapped to frames |
+| Drag timeline zoom slider / top navigator handles | Adjust the timeline's time scale |
+| Time − / Time + / Fit time shortcuts | Zoom out / in / toggle full-duration fit |
+| Frame ‹ / Frame › shortcuts | Move the playhead backward / forward one frame |
 | Auto → Scroll → Drag button | Scroll with one finger on either axis, or force editing drags (e.g. reorder layers, resize panel splitters) |
 | Drag a scrollbar / near its track | Scroll; custom tracks have a 24 CSS-pixel touch target |
 | Hold still for 500 ms | Right-click context menu; no initial left click |
@@ -78,6 +89,7 @@ click. Adding a second finger during an already-started drag ends that drag; it 
   switches, search and parent columns over the time bars. Desktop column preferences are preserved.
   **Fit time** returns to the composition's full duration. Optional columns remain accessible in
   Tablet layout.
+- Phone timeline footer zoom buttons have 44-point targets and a taller slider interaction area.
 - **Layout → Auto / Phone / Tablet** overrides automatic detection and is remembered locally.
   Auto selects Phone for windows narrower than 600 CSS pixels or screens with a shortest side below
   600 CSS pixels, so rotating a phone or opening its keyboard does not switch it to the tablet dock.

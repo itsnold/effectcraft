@@ -124,8 +124,13 @@ export function touchTarget(p, layout, bounds, density = 1, mode = "auto") {
   const contains = ([x, y, w, h]) => w > 0 && h > 0 &&
     point.x >= x && point.x <= x + w && point.y >= y && point.y <= y + h;
   if (!layout?.overlay) {
+    // Ruler/playhead, time display and time-zoom controls are deliberate edits, unlike
+    // swiping layer bars or keys. Prefer exact hits before expanding neighbouring tracks.
+    if (mode !== "scroll" && (layout?.controls || []).some((rect) => contains(rect))) {
+      return { policy: "drag", offset: { x: 0, y: 0 } };
+    }
     // A 24 CSS-pixel cross-axis target makes thin desktop tracks usable with a finger.
-    for (const rect of layout?.scrollbars || []) {
+    for (const rect of [...(layout?.controlTracks || []), ...(layout?.scrollbars || [])]) {
       const [x, y, w, h] = rect;
       const vertical = h >= w;
       const margin = Math.max(0, (24 / scale - (vertical ? w : h)) / 2);
@@ -246,6 +251,11 @@ export function installTouchBar(canvas, { modifiers, controls }) {
     mode.setAttribute("aria-label", `Touch mode: ${mode.textContent}. Tap to switch to Scroll or Drag`);
   });
   button("UI", "Adjust editor UI scale", () => showScalePicker());
+  button("Time −", "Zoom timeline out", () => invoke("timeline.zoomOut"));
+  button("Time +", "Zoom timeline in", () => invoke("timeline.zoomIn"));
+  button("Fit time", "Fit the whole composition in the timeline", () => invoke("timeline.zoomFit"));
+  button("Frame ‹", "Move playhead one frame backward", () => invoke("time.previousFrame"));
+  button("Frame ›", "Move playhead one frame forward", () => invoke("time.nextFrame"));
   button("Esc", "Dismiss menu / cancel editing", () => window.effectcraft.request("ui.key", { key: "Escape" }));
   button("Undo", "Undo", () => invoke("edit.undo"));
   button("Redo", "Redo", () => invoke("edit.redo"));
@@ -270,6 +280,8 @@ export function installTouchBar(canvas, { modifiers, controls }) {
   button("Help", "Touch controls and Android limitations", () => showTouchError(
     "Auto: swipe in either direction to scroll the timeline and media/effects lists without moving layers or keys. " +
     "Pinch to zoom in first if the whole timeline already fits. Swipe over the time bars to move through time. " +
+    "Drag the time ruler / playhead to scrub; drag the bottom time-zoom slider or top navigator handles to change the time scale. " +
+    "Time − / Time + / Fit time change timeline zoom; Frame ‹ / Frame › place the playhead one frame at a time. " +
     "Drag in the viewer to edit. Use Drag mode to move/trim layers, edit keys or reorder media; switch back to Auto to navigate. " +
     "Use Scroll to force one-finger scrolling elsewhere. " +
     "Tap to select. Hold still for 0.5 seconds for a right-click menu. " +

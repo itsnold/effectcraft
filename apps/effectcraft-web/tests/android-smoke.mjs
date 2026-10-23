@@ -75,6 +75,72 @@ async function sidewaysOverKey() {
   assert.deepEqual(await js("Promise.all([effectcraft.execute('comp.info'),effectcraft.execute('layer.tree')])"), documentBefore, "layer timing and keyframes are unchanged");
   return after.ui.timeline.start;
 }
+async function checkTimelineNavigation() {
+  await js("effectcraft.request('ui.set',{timeline:{pps:innerWidth<600?100:300,start:0}})");
+  await js("effectcraft.execute('time.set',{frame:1})");
+  await pause(200);
+  const initial = await js("effectcraft.inspect()");
+  const documentBefore = await js("Promise.all([effectcraft.execute('comp.info'),effectcraft.execute('layer.tree',{time:0})])");
+  const fps = documentBefore[0].frameRate;
+  const ratio = initial.pixelsPerPoint / await js("devicePixelRatio");
+  const bounds = await js("(()=>{const r=document.querySelector('canvas').getBoundingClientRect();return {x:r.x,y:r.y}})()");
+  const point = (rect, fx = 0.5, fy = 0.5) => ({ x: bounds.x + (rect[0] + rect[2] * fx) * ratio, y: bounds.y + (rect[1] + rect[3] * fy) * ratio });
+  const element = async (id) => {
+    const found = (await js(`effectcraft.request('ui.elements',{prefix:${JSON.stringify(id)}})`)).find(e => e.id === id);
+    assert(found, `navigation control ${id} is visible`); return found;
+  };
+  const drag = async (a, b) => {
+    await touch("touchStart", [a]);
+    for (let n = 1; n <= 6; n++) { await touch("touchMove", [{ x: a.x + (b.x - a.x) * n / 6, y: a.y + (b.y - a.y) * n / 6 }]); await pause(35); }
+    await touch("touchEnd", []); await pause(150);
+  };
+  // Scrub on the ruler, including its formerly non-interactive upper portion.
+  const scrub = await element("timeline.scrub"), ruler = await element("timeline.ruler");
+  await drag(point(scrub.rect, 0.3, 0.2), point(scrub.rect, 0.65, 0.2));
+  const scrubbed = await js("effectcraft.inspect()");
+  const [viewStart, pps] = ruler.label.split(',').map(Number);
+  const expected = viewStart + (scrub.rect[0] + scrub.rect[2] * 0.65 - ruler.rect[0] - 6) / pps;
+  assert(Math.abs(scrubbed.time - expected) <= 1 / fps, `ruler drag reaches the requested frame: ${scrubbed.time} vs ${expected}`);
+  assert(Math.abs(scrubbed.time * fps - Math.round(scrubbed.time * fps)) < 1e-5, "scrubbing snaps to an actual frame");
+  assert.equal(scrubbed.ui.timeline.start, initial.ui.timeline.start, "scrubbing within the ruler is not a sideways scroll");
+  // Grab the visible playhead head itself, not only an arbitrary spot on the ruler.
+  const head = await element("timeline.cti");
+  await drag(point(head.rect), point(scrub.rect, 0.4));
+  assert((await js("effectcraft.inspect()")).time < scrubbed.time - 1 / fps, "playhead head drags backward to another frame");
+  // The timeline slider must not be swallowed as a horizontal scroll.
+  const slider = await element("timeline.zoomSlider");
+  const beforeSlider = (await js("effectcraft.inspect()")).ui.timeline.pps;
+  await drag(point(slider.rect, 0.1), point(slider.rect, 0.55));
+  assert((await js("effectcraft.inspect()")).ui.timeline.pps > beforeSlider, "dragging time-zoom slider zooms in");
+  // Actual fingertip taps on the enlarged in/out buttons, not control-channel clicks.
+  const beforeButton = (await js("effectcraft.inspect()")).ui.timeline.pps;
+  await touch("touchStart", [point((await element("timeline.zoomInButton")).rect)]); await touch("touchEnd", []); await pause(150);
+  assert((await js("effectcraft.inspect()")).ui.timeline.pps > beforeButton * 1.1, "zoom-in button works with touch");
+  // Navigator end handles change the visible time span directly too.
+  await js("effectcraft.request('ui.set',{timeline:{pps:null,start:0}})"); await pause(150);
+  const nav = await element("timeline.navigator"), end = await element("timeline.navigator.end");
+  await drag(point(end.rect), point(nav.rect, 0.5));
+  assert((await js("effectcraft.inspect()")).ui.timeline.pps > 0, "navigator handle leaves Fit and zooms time");
+  // Pinch over the time bars: it must zoom, not move/select the bar underneath.
+  const rows = await element("timeline.layerMarquee"), timeRuler = await element("timeline.ruler");
+  const middle = point([timeRuler.rect[0], rows.rect[1], timeRuler.rect[2], 70]);
+  const beforePinch = (await js("effectcraft.inspect()")).ui.timeline.pps;
+  await touch("touchStart", [{ x: middle.x - 30, y: middle.y }, { x: middle.x + 30, y: middle.y }]);
+  await touch("touchMove", [{ x: middle.x - 55, y: middle.y }, { x: middle.x + 55, y: middle.y }]);
+  await pause(120); await touch("touchEnd", []); await pause(150);
+  assert((await js("effectcraft.inspect()")).ui.timeline.pps > beforePinch * 1.1, "two-finger pinch zooms timeline time");
+  // Frame-step shortcuts supply precision beyond what fits under one finger.
+  await js("effectcraft.execute('time.set',{frame:1})");
+  await js("document.querySelector('#touch-bar button[aria-label=\"Move playhead one frame forward\"]').click()");
+  await until(`effectcraft.inspect().then(i=>Math.abs(i.time-${2 / fps})<0.00001)`);
+  await js("document.querySelector('#touch-bar button[aria-label=\"Move playhead one frame backward\"]').click()");
+  await until(`effectcraft.inspect().then(i=>Math.abs(i.time-${1 / fps})<0.00001)`);
+  const after = await js("effectcraft.inspect()");
+  assert.deepEqual(after.selectedLayers, initial.selectedLayers);
+  assert.equal(after.selectedKeys, initial.selectedKeys);
+  assert.deepEqual(await js("Promise.all([effectcraft.execute('comp.info'),effectcraft.execute('layer.tree',{time:0})])"), documentBefore, "timeline navigation must not retime layers or keys");
+  return { scrubTime: scrubbed.time, slider: true, navigator: true, pinch: true, frameStep: true };
+}
 const deadline = setTimeout(() => { console.error("Android smoke test exceeded 5 minutes"); chrome.kill(); process.exit(1); }, 300000);
 try {
   let page;
@@ -162,6 +228,7 @@ try {
   await js("effectcraft.execute('prop.addKey',{path:'transform/opacity',time:1,value:100})");
   await js("effectcraft.request('ui.menu.invoke',{id:'timeline.reveal.opacity'})");
   report.sidewaysOverKey = await sidewaysOverKey();
+  report.tabletTimelineNavigation = await checkTimelineNavigation();
   // Make the timeline genuinely overflow, then swipe on a layer name. No synthetic
   // UI scroll command: only CDP finger input may change the scroll offset.
   await js("(async()=>{for(let i=0;i<45;i++)await effectcraft.execute('layer.newNull',{name:'Touch scroll '+i})})()");
@@ -219,6 +286,7 @@ try {
   await js("effectcraft.request('ui.menu.invoke',{id:'timeline.reveal.selected'})");
   await js("effectcraft.request('ui.menu.invoke',{id:'timeline.scrollToLayer'})");
   report.phoneSidewaysOverKey = await sidewaysOverKey();
+  report.phoneTimelineNavigation = await checkTimelineNavigation();
   const phoneRuler = (await js("effectcraft.request('ui.elements',{prefix:'timeline.ruler'})"))[0];
   assert(phoneRuler.rect[2] > 180, "compact outline leaves useful space for time bars");
   await writeFile(join(out, "phone-portrait.png"), Buffer.from((await send("Page.captureScreenshot", { format: "png" })).data, "base64"));

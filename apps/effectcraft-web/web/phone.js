@@ -96,7 +96,7 @@ export function installPhoneWorkspace(api) {
     document.documentElement.dataset.phoneLayout = String(state.enabled);
     const actual = api.touchLayout?.()?.phonePanel || state.panel;
     for (const [id, b] of panels) b.setAttribute("aria-pressed", String(id === actual || (id === "EffectsPresets" && actual === "EffectControls")));
-    hint.textContent = actual === "Timeline" ? "Swipe to scroll · Pinch to zoom · Drag mode to edit" : `${PHONE_PANELS.find(([id]) => id === actual)?.[1] || actual} · Hold for options`;
+    hint.textContent = actual === "Timeline" ? "Ruler: scrub · Rows: scroll · Pinch: zoom" : `${PHONE_PANELS.find(([id]) => id === actual)?.[1] || actual} · Hold for options`;
   });
   const invoke = (id, params = {}) => api.request("ui.menu.invoke", { id, params });
   button(toolbar, "Menu", () => commands());

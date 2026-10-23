@@ -109,6 +109,24 @@ fn keys_buttons_and_slider_zoom_the_layer_bars() {
 }
 
 #[test]
+fn ruler_labels_and_playhead_head_are_scrubbable() {
+    let mut h = harness(false);
+    let ruler = h.state().auto.find("timeline.ruler").unwrap().clone();
+    let scrub = h.state().auto.find("timeline.scrub").unwrap().rect;
+    let y = scrub[1] + scrub[3] * 0.2;
+    let from = scrub[0] + scrub[2] * 0.2;
+    let to = scrub[0] + scrub[2] * 0.6;
+    let (start, pps) = ruler.label.split_once(',').map(|(a, b)| (a.parse::<f64>().unwrap(), b.parse::<f64>().unwrap())).unwrap();
+    send(&mut h, "ui.drag", json!({"from": {"x": from, "y": y}, "to": {"x": to, "y": y}}));
+    let expected = start + f64::from(to - ruler.rect[0] - 6.0) / pps;
+    assert!((h.state().session.time().seconds() - expected).abs() <= 1.0 / 30.0, "dragging the ruler's upper label region moves the playhead");
+    let head = h.state().auto.find("timeline.cti").unwrap().rect;
+    let before = h.state().session.time();
+    send(&mut h, "ui.drag", json!({"from": {"x": head[0] + head[2] * 0.5, "y": head[1] + head[3] * 0.5}, "to": {"x": from, "y": y}}));
+    assert!(h.state().session.time() < before, "the playhead head drags backward too");
+}
+
+#[test]
 fn keys_buttons_and_slider_zoom_the_graph_editor_time_axis() {
     check_controls(true);
 }

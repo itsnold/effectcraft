@@ -149,6 +149,22 @@ assert(!scroll.some(e => e.type === "down" || e.type === "up"), "scrolling acros
 assert.equal(touchTarget(p(120, 160), timelineLayout, bounds, 2, "drag").policy, "drag", "explicit Drag still edits");
 assert.equal(touchTarget(p(120, 160), { ...timelineLayout, overlay: true }, bounds, 2).policy, "auto", "an overlaid dialog keeps value dragging");
 
+// Timeline navigation is not a layer edit: keep the ruler, playhead and zoom controls draggable
+// in Auto, with the same inset/density conversion as the protected layer rows.
+const navigationLayout = { pixelsPerPoint: 3, scrolls: [[0, 0, 400, 400]],
+  controls: [[100, 20, 250, 34], [100, 330, 150, 20]],
+  controlTracks: [[100, 338, 150, 4]] };
+assert.equal(touchTarget(p(235, 75), navigationLayout, bounds, 2).policy, "drag", "ruler scrub takes precedence over timeline scroll");
+assert.equal(touchTarget(p(235, 75), navigationLayout, bounds, 2, "scroll").policy, "scroll", "explicit Scroll still overrides scrubbing");
+assert.equal(touchTarget(p(235, 75), { ...navigationLayout, overlay: true }, bounds, 2).policy, "auto", "dialogs do not scrub the timeline underneath");
+assert.equal(touchTarget(p(235, 180), navigationLayout, bounds, 2).policy, "scroll", "a playhead line through layer rows must not become a drag target");
+const zoomTarget = touchTarget(p(235, 526), { ...navigationLayout, controls: [] }, bounds, 2);
+assert.equal(zoomTarget.policy, "drag", "near a thin zoom track, snap onto the control");
+assert.equal(zoomTarget.offset.y, 4, "preserve the finger's horizontal position when snapping a zoom track");
+assert.equal(zoomTarget.offset.x, 0);
+gesture.down(1, p(235, 75), "drag"); gesture.move(1, p(300, 75)); gesture.up(1, p(300, 75));
+assert(types().some(([type]) => type === "down"), "scrubbing emits a real press/drag rather than a wheel");
+
 // Fresh installs, one-time upgrade from the forced scale, custom settings and failed writes.
 function preferences(initial = {}, scale = 125) {
   const stored = new Map(Object.entries(initial)), writes = [];
