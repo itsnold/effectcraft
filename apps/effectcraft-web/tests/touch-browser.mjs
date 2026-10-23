@@ -41,10 +41,14 @@ async function swipe(start,end) {
  for(let n=1;n<=5;n++){await touch("touchMove",[{x:start.x+(end.x-start.x)*n/5,y:start.y+(end.y-start.y)*n/5}]);await pause(20);}
  await touch("touchEnd",[]);await pause(50);
 }
-const deadline=setTimeout(()=>{console.error("touch browser timed out",stderr);chrome.kill();process.exit(1);},60000);
+const deadline=setTimeout(()=>{console.error("touch browser timed out",stderr);chrome.kill();process.exit(1);},90000);
 try {
  let port;
- for(let i=0;i<100&&!port;i++){try{port=(await readFile(join(profile,"DevToolsActivePort"),"utf8")).split('\n')[0];}catch{await pause(50);}}
+ // Cold CI browsers can take more than five seconds to publish their debugging port.
+ const startupDeadline=Date.now()+30000;
+ while(!port&&Date.now()<startupDeadline){
+  try{port=(await readFile(join(profile,"DevToolsActivePort"),"utf8")).split('\n')[0];}catch{await pause(100);}
+ }
  assert(port,stderr);
  const page=(await(await fetch(`http://127.0.0.1:${port}/json/list`)).json()).find(p=>p.type==='page');
  ws=new WebSocket(page.webSocketDebuggerUrl);await new Promise((r,j)=>{ws.onopen=r;ws.onerror=j;});
