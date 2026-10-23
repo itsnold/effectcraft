@@ -123,7 +123,7 @@ try {
  await js("layout.overlay=false;layout.keyboardFocus=true");assert.equal(await js("effectcraft.dismissTouchOverlay()"),true);
   await js("layout.keyboardFocus=false");assert.equal(await js("effectcraft.dismissTouchOverlay()"),false);
   // Phone chrome, tab selection, searchable menu and rotation use the actual DOM.
-  await js("window.phone=(await import('/phone.js')).installPhoneWorkspace(effectcraft);await phone.start()");
+  await js("(async()=>{window.phone=(await import('/phone.js')).installPhoneWorkspace(effectcraft);await phone.start()})()");
   await send("Emulation.setDeviceMetricsOverride",{width:390,height:844,deviceScaleFactor:2,mobile:true});
   await pause(100);
   assert.equal(await js("document.documentElement.dataset.phoneLayout"),'true');
