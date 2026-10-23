@@ -191,6 +191,10 @@ try {
   assert.equal(typeof load, "number", String(load));
   console.log(`Editor ready after ${Math.round(load)} ms`);
   report.info = await js("effectcraft.info()");
+  const manifest = await readFile(new URL("../../../Cargo.toml", import.meta.url), "utf8");
+  const expectedVersion = manifest.match(/^version = "([^"]+)"/m)?.[1];
+  assert(expectedVersion, "workspace version is declared");
+  assert.equal(report.info.version, expectedVersion, "bundled editor runs this checkout's engine version");
   if (webgl4096) {
     assert.equal(report.info.backend, "Gl", "exercise the WebGL2 presentation path");
     assert.equal(report.info.graphicsLimits.adapterMaxTextureDimension2D, 4096, "synthetic adapter really exposes 4096");

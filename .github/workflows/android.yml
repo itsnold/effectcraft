@@ -54,6 +54,8 @@ jobs:
           node apps/effectcraft-web/tests/phone.mjs
           node apps/effectcraft-web/tests/page.mjs
           node apps/effectcraft-web/tests/storage.mjs
+          node apps/effectcraft-web/tests/cache.mjs
+          node apps/effectcraft-web/tests/service-worker.mjs
           node apps/effectcraft-web/tests/workers.mjs
       - name: Real browser touch adapter regressions
         run: node apps/effectcraft-web/tests/touch-browser.mjs --chrome google-chrome

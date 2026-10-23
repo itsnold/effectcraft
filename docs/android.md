@@ -7,6 +7,12 @@ services; the editing engine and codecs are unchanged Rust.
 
 ## Requirements and installation
 
+- Android port **0.1.5-alpha** includes upstream **EffectCraft v0.16.0**
+  (`9581b53c3f8945683252af0eb5fac79e0e43aed4`). This update brings secure temporary cache
+  filenames, service-worker cache-failure recovery and expression/ScriptUI reliability fixes.
+  Upstream 0.15/0.16 added no new editing features beyond this fork's existing engine base.
+  The phone workspace, touch/timeline controls, 4096-pixel WebGL fallback, package ID and
+  project storage are preserved; the APK version code increases to 6.
 - Android 10 (API 29) or newer, OpenGL ES 3, and a recent **Android System WebView** (Chromium 120+
   recommended; update it through the Play Store). WebAssembly and WebGL2 must be enabled.
 - Phones get a compact, single-panel workspace in portrait and landscape; tablets keep the docked
@@ -127,6 +133,8 @@ rustup target add wasm32-unknown-unknown
 cargo install wasm-bindgen-cli --version 0.2.129 --locked
 node apps/effectcraft-web/tests/touch.mjs
 node apps/effectcraft-web/tests/phone.mjs
+node apps/effectcraft-web/tests/cache.mjs
+node apps/effectcraft-web/tests/service-worker.mjs
 node apps/effectcraft-web/tests/touch-browser.mjs --chrome google-chrome
 cargo xtask ci
 cargo xtask web
@@ -145,6 +153,12 @@ Rust gate separately, Node gesture/browser-host tests, JVM export tests, the WAS
 and APK assembly. A headless browser test checks the Android-mode UI. It uploads the testing APK
 and checksum only after that job's checks pass. The separate Rust gate can expose existing upstream
 failures; inspect **both** jobs before distributing an artifact.
+
+The cache regressions cover UUID-based temporary names and WebViews without `randomUUID` or
+file moves, including worker writes and failed moves. Service-worker regressions check that
+cache-open, lookup and background-write failures do not break a usable network response
+(the Android shell itself uses `nosw`). Browser smoke tests also verify the running WASM
+engine version matches the workspace, preventing a stale bundle from passing unnoticed.
 
 ## Known limitations / what is not promised
 
