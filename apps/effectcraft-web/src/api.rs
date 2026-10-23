@@ -15,6 +15,42 @@ thread_local! {
     static TX: RefCell<Option<Sender<ControlRequest>>> = const { RefCell::new(None) };
     static PENDING: RefCell<Vec<Pending>> = const { RefCell::new(Vec::new()) };
     static INFO: RefCell<Value> = const { RefCell::new(Value::Null) };
+    static TOUCH_LAYOUT: RefCell<Value> = const { RefCell::new(Value::Null) };
+}
+
+/// A small snapshot of the completed layout, read synchronously at touch-down. An async
+/// control request can arrive after the finger has already moved or the layout has changed.
+pub(crate) fn set_touch_layout(app: &effectcraft_ui_egui::EffectcraftApp, ctx: &egui::Context) {
+    let viewers: Vec<_> = app
+        .auto
+        .elements
+        .iter()
+        .filter(|e| matches!(e.id.as_str(), "panel.Composition" | "panel.Layer" | "panel.Footage") || e.id.starts_with("panel.Viewer("))
+        .map(|e| e.rect)
+        .collect();
+    let drags: Vec<_> = app
+        .auto
+        .elements
+        .iter()
+        .filter(|e| e.id.starts_with("dock.gutter.") || e.id.starts_with("panel.tab.") || e.id.starts_with("panel.header."))
+        .map(|e| e.rect)
+        .collect();
+    let overlay = app.dialog.is_some() || effectcraft_ui_egui::widgets::any_menu_open(ctx);
+    TOUCH_LAYOUT.with(|layout| {
+        *layout.borrow_mut() = json!({
+            "pixelsPerPoint": ctx.pixels_per_point(),
+            "viewers": viewers,
+            "drags": drags,
+            "scrollbars": app.auto.scroll_tracks,
+            "overlay": overlay,
+            "keyboardFocus": ctx.egui_wants_keyboard_input(),
+        })
+    });
+}
+
+#[wasm_bindgen(js_name = touchLayout)]
+pub fn touch_layout() -> JsValue {
+    TOUCH_LAYOUT.with(|layout| to_js(&layout.borrow()))
 }
 
 pub(crate) fn set_sender(tx: Sender<ControlRequest>) {

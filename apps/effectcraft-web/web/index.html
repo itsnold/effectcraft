@@ -44,13 +44,15 @@
   <div id="loading"><img src="favicon.svg" alt=""><div id="status">Loading EffectCraft…</div></div>
   <script type="module">
     import init, * as ec from "./effectcraft_web.js";
-    import { installTouch, installTouchBar, installAndroidDownloads } from "./touch.js";
+    import { installTouch, installTouchBar, installAndroidDownloads, applyAndroidDefaults, dismissTouchOverlay } from "./touch.js";
     const t0 = performance.now();
     window.effectcraftLoad = {};
     // The agent / test API: the desktop control channel as promises (docs/web.md).
     window.effectcraft = {
       request: (method, params) => ec.request(method, params ?? {}),
       execute: (command, params) => ec.request("engine.execute", { command, params: params ?? {} }),
+      touchLayout: () => window.effectcraftLoad.readyMs ? ec.touchLayout() : null,
+      dismissTouchOverlay,
       commands: () => ec.request("engine.commands", {}),
       inspect: () => ec.request("ui.inspect", {}),
       screenshot: (params) => ec.request("ui.screenshot", params ?? {}),
@@ -122,14 +124,7 @@
         // A separate Android origin has no desktop preferences to preserve. Apply conservative
         // first-run defaults once; subsequent changes in Settings are left alone.
         try {
-          if (!localStorage.getItem("ecdroid.defaults.v1")) {
-            await window.effectcraft.execute("prefs.set", { values: {
-              "appearance.uiScale": 125, "memory.layerCacheMb": 128,
-              "memory.mediaCacheMb": 128, "memory.previewCacheMb": 128,
-            } });
-            await window.effectcraft.flush();
-            localStorage.setItem("ecdroid.defaults.v1", "1");
-          }
+          await applyAndroidDefaults(window.effectcraft, localStorage);
         } catch (e) { console.warn("Android defaults:", e); }
       }
       window.effectcraftLoad.readyMs = performance.now() - t0;

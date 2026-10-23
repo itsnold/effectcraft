@@ -406,6 +406,7 @@ pub fn scroll_bar(ui: &mut Ui, auto: &mut Registry, key: &str, track: Rect, scro
         return scroll.clamp(0.0, max.max(0.0));
     }
     let vertical = track.height() >= track.width();
+    auto.scroll_tracks.push([track.min.x, track.min.y, track.width(), track.height()]);
     let a = usize::from(vertical);
     let len = track.size()[a];
     let thumb_len = (len * len / (len + max.max(0.0)).max(1.0)).max(16.0).min(len).max(0.0);

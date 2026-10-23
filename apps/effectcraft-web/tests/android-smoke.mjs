@@ -111,6 +111,7 @@ try {
     assert.equal(report.info.graphicsLimits.deviceMaxTextureDimension2D, 4096, "device request respects the adapter");
     report.webgl4096 = true;
   }
+  assert.equal(await js("effectcraft.execute('prefs.get',{key:'appearance.uiScale'})"), 100, "Android defaults to desktop density");
   assert.notEqual(report.info.storage.backend, "memory", "private storage must persist");
   assert(await js("document.querySelectorAll('#touch-bar button').length >= 12"));
   await js("document.querySelector('#touch-bar button[aria-label=\"Hand tool (drag to pan the composition)\"]').click()");
@@ -125,7 +126,7 @@ try {
   const twirl = elements.find((e) => e.id === row.id.replace(/\.row$/, ".twirl"));
   assert(twirl, "layer twirl identifies the name column independently of visible switches");
   const [, y, , height] = row.rect;
-  // Registry coordinates are egui points, whereas CDP expects CSS pixels (UI Scale may be 125%).
+  // Registry coordinates are egui points, whereas CDP expects CSS pixels (UI Scale may be customized).
   const cssPerPoint = await js("effectcraft.inspect().then(i=>i.pixelsPerPoint/devicePixelRatio)");
   // The registered row includes switch/parent cells; only its name/number area owns the layer menu.
   // Aim beyond the twirl and layer icon, not at an arbitrary percentage of the whole left panel.
@@ -137,6 +138,35 @@ try {
   report.longPressMenu = true;
   console.log("Touch bar and real-touch long-press menu passed");
   await js("effectcraft.request('ui.key',{key:'Escape'})");
+  // Make the timeline genuinely overflow, then swipe on a layer name. No synthetic
+  // UI scroll command: only CDP finger input may change the scroll offset.
+  await js("(async()=>{for(let i=0;i<45;i++)await effectcraft.execute('layer.newNull',{name:'Touch scroll '+i})})()");
+  await pause(200);
+  const scrollBefore = await js("effectcraft.inspect()");
+  const targetRow = (await js("effectcraft.request('ui.elements',{prefix:'timeline.'})"))
+    .filter(e => /^timeline\.layer\.\d+\.row$/.test(e.id) && e.rect[3] > 0)[8];
+  assert(targetRow, "overflowing timeline has a visible scroll target");
+  const ratio = scrollBefore.pixelsPerPoint / await js("devicePixelRatio");
+  const swipe = { x: 260 * ratio, y: (targetRow.rect[1] + targetRow.rect[3] / 2) * ratio };
+  const wasSelected = scrollBefore.selectedLayers;
+  await touch("touchStart", [swipe]);
+  for (let n = 1; n <= 5; n++) { await touch("touchMove", [{ x: swipe.x + n, y: swipe.y - n * 20 }]); await pause(30); }
+  await touch("touchEnd", []); await pause(250);
+  const scrollAfter = await js("effectcraft.inspect()");
+  assert(scrollAfter.ui.timeline.scroll_y > scrollBefore.ui.timeline.scroll_y + 50, "one-finger swipe scrolls timeline rows");
+  assert.deepEqual(scrollAfter.selectedLayers, wasSelected, "scrolling does not select/reorder layers");
+  report.oneFingerScroll = scrollAfter.ui.timeline.scroll_y;
+  // Thin scrollbars must accept a near miss and drag the real track.
+  const track = (await js("effectcraft.request('ui.elements',{prefix:'timeline.scroll'})"))[0];
+  assert(track, "overflowing timeline draws a scrollbar");
+  const [tx, ty, tw, th] = track.rect;
+  const start = { x: (tx + tw / 2) * ratio - 8, y: (ty + th / 2) * ratio };
+  await touch("touchStart", [start]);
+  await touch("touchMove", [{ x: start.x, y: start.y + 30 }]); await pause(100);
+  await touch("touchEnd", []); await pause(150);
+  assert((await js("effectcraft.inspect()")).ui.timeline.scroll_y > scrollAfter.ui.timeline.scroll_y, "near-track scrollbar drag is functional");
+  report.scrollbarDrag = true;
+  console.log("Real-touch timeline swipe and enlarged scrollbar target passed");
   // Maximise the viewer, then pinch. A remaining finger must not modify layer selection.
   await js("effectcraft.request('ui.menu.invoke',{id:'window.maximizePanel',params:{panel:'Composition'}})");
   await pause(150);

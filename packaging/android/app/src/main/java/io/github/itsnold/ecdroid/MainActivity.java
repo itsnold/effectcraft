@@ -63,7 +63,7 @@ public final class MainActivity extends Activity {
         catch (RuntimeException e) {
             setContentView(root);
             new AlertDialog.Builder(this).setTitle("Android WebView unavailable")
-                .setMessage("Install or update Android System WebView, then reopen ECDroid.\n" + e.getMessage())
+                .setMessage("Install or update Android System WebView, then reopen EffectCraft.\n" + e.getMessage())
                 .setPositiveButton("Close", (dialog, which) -> finish()).show();
             return;
         }
@@ -71,6 +71,13 @@ public final class MainActivity extends Activity {
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
+        // Editor density is controlled by its UI Scale preference. Do not additionally
+        // magnify web text or allow WebView page zoom to change canvas coordinates.
+        settings.setTextZoom(100);
+        settings.setSupportZoom(false);
+        settings.setBuiltInZoomControls(false);
+        settings.setDisplayZoomControls(false);
+        web.setOverScrollMode(WebView.OVER_SCROLL_NEVER);
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(true); // Only URIs explicitly granted by the system picker.
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
@@ -215,8 +222,14 @@ public final class MainActivity extends Activity {
 
     @Override public void onBackPressed() {
         if (web == null) { finish(); return; }
-        web.evaluateJavascript("window.effectcraft?.request('ui.key',{key:'Escape'}).catch(console.warn)", null);
-        new AlertDialog.Builder(this).setTitle("Close ECDroid?")
+        web.evaluateJavascript("window.effectcraft?.dismissTouchOverlay?.() ?? false", result -> {
+            if (web == null || isFinishing() || isDestroyed() || "true".equals(result)) return;
+            confirmClose();
+        });
+    }
+
+    private void confirmClose() {
+        new AlertDialog.Builder(this).setTitle("Close EffectCraft?")
             .setMessage("Save important work with Save first. Session recovery is best effort, not a backup.")
             .setNegativeButton("Keep editing", null)
             .setPositiveButton("Save session & close", (dialog, which) -> {
@@ -250,7 +263,7 @@ public final class MainActivity extends Activity {
         if (filePicker != null) filePicker.onReceiveValue(null);
         if (web != null) { web.removeJavascriptInterface("ECDroidNative"); web.destroy(); }
         // Queue cleanup after any in-flight file copy, never delete its source during the copy.
-        io.execute(() -> { try { exports.close(); } catch (IOException e) { android.util.Log.w("ECDroid", "Export cleanup failed", e); } });
+        io.execute(() -> { try { exports.close(); } catch (IOException e) { android.util.Log.w("EffectCraft", "Export cleanup failed", e); } });
         io.shutdown();
         super.onDestroy();
     }

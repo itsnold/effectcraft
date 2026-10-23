@@ -83,6 +83,7 @@ pub struct WebApp {
     pub app: EffectcraftApp,
     /// Keep the session snapshot (off with `?empty`).
     pub persist: bool,
+    pub touch: bool,
 }
 
 impl eframe::App for WebApp {
@@ -118,6 +119,9 @@ impl eframe::App for WebApp {
 
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         self.app.ui(ui, frame);
+        if self.touch {
+            api::set_touch_layout(&self.app, ui.ctx());
+        }
     }
 }
 
@@ -269,7 +273,7 @@ pub async fn start(canvas_id: String) -> Result<(), JsValue> {
                 app = app.with_control(rx);
                 let backend = cc.wgpu_render_state.as_ref().map(|rs| format!("{:?}", rs.adapter.get_info().backend));
                 api::set_info("backend", json!(backend));
-                Ok(Box::new(WebApp { app, persist: !empty }))
+                Ok(Box::new(WebApp { app, persist: !empty, touch: query_flag("android") }))
             }),
         )
         .await?;

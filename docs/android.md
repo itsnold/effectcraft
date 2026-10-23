@@ -1,6 +1,6 @@
-# ECDroid for Android (alpha)
+# EffectCraft for Android (alpha)
 
-ECDroid is an **unofficial fork**, based on EffectCraft by the ArtCraft Team. The Android shell
+This is an **unofficial Android fork**, based on EffectCraft by the ArtCraft Team. The Android shell
 packages the Rust/WebAssembly editor from this checkout; no remote website, account, server,
 FFmpeg or proprietary editor code is required. The Java shell only supplies Android platform
 services; the editing engine and codecs are unchanged Rust.
@@ -10,9 +10,14 @@ services; the editing engine and codecs are unchanged Rust.
 - Android 10 (API 29) or newer, OpenGL ES 3, and a recent **Android System WebView** (Chromium 120+
   recommended; update it through the Play Store). WebAssembly and WebGL2 must be enabled.
 - A tablet or landscape phone is recommended. Start with short, small projects (e.g. 720p).
-- In this fork's **Actions → Android APK**, select a successful run and download the `ecdroid-debug`
+- In this fork's **Actions → Android APK**, select a successful run and download the `effectcraft-android-debug`
   artifact. Unzip it and install `app-debug.apk`, allowing installation from that source if asked.
   This is a sideloadable **debug-signed testing APK**, not a Play Store production release.
+- Version **0.1.2-alpha** uses the display name **EffectCraft** and the openly licensed unicorn
+  app icon (`assets/app-icon/LICENSE.txt`). The package ID remains `io.github.itsnold.ecdroid`
+  for compatibility with earlier ECDroid installs and their stored projects/preferences. Updating
+  still requires a matching signing key; do not uninstall without backups. Older workflow runs
+  call their APK artifact `ecdroid-debug`.
 - Version **0.1.1-alpha** fixes startup on WebViews that expose a 4096-pixel texture limit. The
   presentation device requests the adapter's advertised limits instead of requiring 8192-pixel
   textures. CI repeats the touch/save smoke test with a synthetic 4096-pixel WebGL2 adapter.
@@ -25,7 +30,10 @@ services; the editing engine and codecs are unchanged Rust.
 | Input | Action |
 |---|---|
 | Tap | Left click / selection |
-| One-finger drag | Move, scrub, resize panels, trim layers, adjust values |
+| Auto mode: vertical swipe in panels / menus | Scroll without selecting or editing the row underneath |
+| Auto mode: drag in viewer / horizontal drag in panels | Move, scrub, trim layers, adjust values |
+| Auto → Scroll → Drag button | Scroll with one finger on either axis, or force editing drags (e.g. reorder layers, resize panel splitters) |
+| Drag a scrollbar / near its track | Scroll; custom tracks have a 24 CSS-pixel touch target |
 | Hold still for 500 ms | Right-click context menu; no initial left click |
 | Two-finger pinch | Zoom timeline time scale or composition around the gesture |
 | Two fingers moving together | Scroll panels / timeline (not a layer drag) |
@@ -37,11 +45,19 @@ services; the editing engine and codecs are unchanged Rust.
 
 The bottom shortcut bar scrolls horizontally and has 48 × 44 CSS-pixel minimum buttons: Undo,
 Redo, Play, Save, Import, Select, Hand, Fit, modifier toggles, panel expansion and Help.
-**Settings → Appearance → UI Scale** enlarges the editor's existing controls (75–200%). Most
-underlying panels still use their desktop layout; a bigger bar does not make every handle finger-sized.
-The first Android launch sets UI Scale to 125% and layer, footage and preview caches to 128 MiB each.
-Later settings changes are preserved; these limits do not bound codec or worker memory.
-Mouse and pen input are not remapped. Lifting one finger after a pinch cannot become an accidental
+The **UI** shortcut changes editor scale (75–200%); 100% is the default and 75–90% fits more on a
+small display. **Esc** dismisses menus/edits and **Delete** clears the current selection. Most
+underlying panels still use their desktop layout; not every handle is finger-sized.
+Version **0.1.2-alpha** removes the forced 125% scale. Existing installs still at that old default
+migrate once to 100%; other custom scales are kept. Layer, footage and preview caches start at
+128 MiB each; upgrading does not reset cache preferences. These limits do not bound codec or
+worker memory. WebView text/page zoom is disabled so it cannot magnify the canvas a second time.
+In Auto, panel tabs and dividers still drag to move/resize. Use Drag for vertical editing
+gestures such as reordering layer names; use two fingers or Scroll for horizontal list scrolling.
+Mouse and pen input retain their native event path. Gesture movement locks to its initial scroll
+axis and originating panel, preventing accidental edits or scrolling a neighbouring panel. Rotate,
+app-switch, lost pointer capture and cancellation release active gestures and clear stale hover.
+Lifting one finger after a pinch cannot become an accidental
 click. Adding a second finger during an already-started drag ends that drag; it does not undo it.
 
 ## Files, privacy and recovery
@@ -56,7 +72,8 @@ click. Adding a second finger during an already-started drag ends that drag; it 
   Retried exports keep their bytes while the app stays open. Render outputs are not crash-persisted.
 - Projects, imported media and settings use the existing OPFS / IndexedDB store. Session recovery
   and autosave are best effort. Save an `.ecproj` and keep its source media outside app storage.
-  Android can kill background apps without a shutdown callback. Back offers to save/flush before exit.
+  Android can kill background apps without a shutdown callback. Back first dismisses menus, text edits
+  and touch dialogs; otherwise it offers to save/flush before exit.
 - Assets load over an intercepted app-private HTTPS origin, not `file://`. Remote subresources and
   in-WebView navigation are blocked. Explicit Help links open in an external browser. The native
   bridge is never exposed to remote pages. No analytics or remote server is added.
@@ -72,6 +89,7 @@ The Gradle project deliberately lives under `packaging/`, outside Cargo's `apps/
 rustup target add wasm32-unknown-unknown
 cargo install wasm-bindgen-cli --version 0.2.129 --locked
 node apps/effectcraft-web/tests/touch.mjs
+node apps/effectcraft-web/tests/touch-browser.mjs --chrome google-chrome
 cargo xtask ci
 cargo xtask web
 gradle -p packaging/android :app:testDebugUnitTest :app:assembleDebug
@@ -108,6 +126,12 @@ failures; inspect **both** jobs before distributing an artifact.
   save/reopen, MP4/GIF export, document-provider failure, background/process death and recovery.
 
 ## Public interface research (behaviour only)
+
+The 0.1.2 touch changes were imported from the contributor-supplied
+[source ZIP](https://drive.google.com/file/d/1ykb9W51If4Dg5CYB1lK6W0l3n6Kz1q8H/view),
+based on commit `bd2eba780a867ffddce243010fea9c7927e63e64`. Its archive SHA-256 is
+`c32340146403571537df5082f1129d2bc7dedfe1a701220b3f1c3617537a0e31`;
+the 13 source-file hashes were checked against its manifest before applying the patch.
 
 The references support tablet workspace design, not an assertion that CapCut uses our exact gestures:
 

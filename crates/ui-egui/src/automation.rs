@@ -17,6 +17,9 @@ pub struct Element {
 #[derive(Default)]
 pub struct Registry {
     pub elements: Vec<Element>,
+    /// Custom scroll tracks in this frame. The Android host expands their touch targets
+    /// without changing desktop layout or guessing from automation names.
+    pub scroll_tracks: Vec<[f32; 4]>,
     /// Last frame's elements (for lookups from control handlers between frames).
     pub previous: Vec<Element>,
 }
@@ -39,6 +42,7 @@ impl Registry {
     }
     pub fn begin_frame(&mut self) {
         self.previous = std::mem::take(&mut self.elements);
+        self.scroll_tracks.clear();
     }
     pub fn find(&self, id: &str) -> Option<&Element> {
         self.previous.iter().chain(self.elements.iter()).find(|e| e.id == id)

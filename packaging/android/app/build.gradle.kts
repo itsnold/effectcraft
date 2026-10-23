@@ -7,8 +7,8 @@ android {
         applicationId = "io.github.itsnold.ecdroid"
         minSdk = 29
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.1.1-alpha"
+        versionCode = 3
+        versionName = "0.1.2-alpha"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     compileOptions {
@@ -17,6 +17,16 @@ android {
     }
     androidResources { noCompress += "wasm" }
     sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/assets"))
+    sourceSets["main"].res.srcDir(layout.buildDirectory.dir("generated/icon-res"))
+}
+
+// Reuse the openly licensed EffectCraft app icon, not the restricted docs/brand marks.
+// Generate a resource copy instead of keeping a second binary asset in source control.
+val bundleLauncherIcon by tasks.registering(Sync::class) {
+    val icon = rootProject.file("../../assets/app-icon/effectcraft-1024.png")
+    doFirst { check(icon.isFile) { "Missing licensed EffectCraft launcher artwork: $icon" } }
+    into(layout.buildDirectory.dir("generated/icon-res/drawable-nodpi"))
+    from(icon) { rename { "effectcraft_icon.png" } }
 }
 
 // Always package the editor built from THIS checkout, never a remote website or release zip.
@@ -39,7 +49,7 @@ val bundleEditor by tasks.registering(Sync::class) {
         into("editor/licenses/assets")
     }
 }
-tasks.named("preBuild") { dependsOn(bundleEditor) }
+tasks.named("preBuild") { dependsOn(bundleEditor, bundleLauncherIcon) }
 
 dependencies {
     implementation("androidx.webkit:webkit:1.12.1")

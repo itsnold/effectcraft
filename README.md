@@ -1,16 +1,18 @@
-# ECDroid — experimental Android port
+# EffectCraft — experimental Android port
 
 Unofficial fork of EffectCraft by the ArtCraft Team. Not affiliated with or endorsed by upstream.
 
 The Android APK bundles the same Rust editor as WebAssembly in an offline WebView, with long-press
-right-click, pinch zoom, two-finger scrolling, touch shortcuts and Android document import/export.
+right-click, one/two-finger scrolling, pinch zoom, touch shortcuts and Android document import/export.
 This is an **alpha tablet/landscape port**, not a fully redesigned mobile editor.
 
 **[Android build, installation, gestures and limitations](docs/android.md)** ·
 **[APK build workflow](https://github.com/itsnold/effectcraft/actions/workflows/android.yml)**
 
 The upstream description below documents the shared engine, not a claim that every feature has
-been tested on Android. Upstream trademark artwork has been removed from this fork.
+been tested on Android. Restricted upstream trademark artwork has been removed; the separately
+MIT/Apache-2.0-licensed unicorn app icon is retained. The Android display name is EffectCraft
+(previously ECDroid); this remains an unofficial fork.
 
 
 <p align="center">

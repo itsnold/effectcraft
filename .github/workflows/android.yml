@@ -54,6 +54,8 @@ jobs:
           node apps/effectcraft-web/tests/page.mjs
           node apps/effectcraft-web/tests/storage.mjs
           node apps/effectcraft-web/tests/workers.mjs
+      - name: Real browser touch adapter regressions
+        run: node apps/effectcraft-web/tests/touch-browser.mjs --chrome google-chrome
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -87,12 +89,17 @@ jobs:
         run: node apps/effectcraft-web/tests/android-smoke.mjs --dist target/web/dist --chrome google-chrome --out target/android-smoke-webgl4096 --webgl-4096
       - name: JVM export tests, Android lint, APK assembly
         run: gradle -p packaging/android :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
+      - name: Verify APK launcher name and icon
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging packaging/android/app/build/outputs/apk/debug/app-debug.apk > target/android-badging.txt
+          grep -F "application-label:'EffectCraft'" target/android-badging.txt
+          grep -E "application: label='EffectCraft' icon='res/.+'" target/android-badging.txt
       - name: Checksum
         working-directory: packaging/android/app/build/outputs/apk/debug
         run: sha256sum app-debug.apk > SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: ecdroid-debug
+          name: effectcraft-android-debug
           path: |
             packaging/android/app/build/outputs/apk/debug/app-debug.apk
             packaging/android/app/build/outputs/apk/debug/SHA256SUMS.txt
@@ -104,5 +111,6 @@ jobs:
           path: |
             target/android-smoke/
             target/android-smoke-webgl4096/
+            target/android-badging.txt
             packaging/android/app/build/reports/
           if-no-files-found: ignore
