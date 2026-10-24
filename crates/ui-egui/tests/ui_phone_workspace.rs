@@ -108,7 +108,7 @@ fn phone_position_numbers_stay_visible_and_register_for_touch_scrubbing() {
     let uid = s.execute("prop.get", json!({"layer": layer, "path": "transform/position"})).unwrap()["uid"].as_u64().unwrap();
     let mut app = EffectcraftApp::new(s);
     app.ui.phone_panel = Some(PanelKind::Timeline);
-    app.ui.timeline.reveal = vec!["position".into()];
+    app.ui.timeline.apply_reveal(&[layer], vec!["position".into()]);
     let mut h = Harness::builder().with_size(vec2(390.0, 676.0)).build_eframe(|_| app);
     h.run_steps(4);
     let ruler = h.state().auto.find("timeline.ruler").unwrap().rect;
