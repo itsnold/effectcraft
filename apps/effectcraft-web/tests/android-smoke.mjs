@@ -44,7 +44,10 @@ async function send(method, params = {}) {
 }
 async function js(expression) {
   const r = await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true, timeout: 120000 });
-  if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text);
+  if (r.exceptionDetails) {
+    const exception = r.exceptionDetails.exception;
+    throw new Error(`${expression}: ${exception?.description || exception?.value || r.exceptionDetails.text}`);
+  }
   return r.result.value;
 }
 async function until(expression, timeout = 120000) {
@@ -142,10 +145,20 @@ async function checkTimelineNavigation() {
   return { scrubTime: scrubbed.time, slider: true, navigator: true, pinch: true, frameStep: true };
 }
 // Revealing "selected" depends on a selection that layer.select and touch edits can clear.
-// Reveal by stable layer/property ids instead; this is idempotent, unlike reveal.opacity.
+// Use the public property-specific reveal command only when it isn't already active:
+// invoking it twice toggles the row closed. revealProps is an internal frontend event,
+// not a command exposed through ui.menu.invoke.
 async function revealEditingProperty(layer, path) {
   const property = await js(`effectcraft.execute('prop.get',${JSON.stringify({layer,path})})`);
-  await js(`effectcraft.request('ui.menu.invoke',${JSON.stringify({id:'timeline.revealProps',params:{props:[{layer,prop:property.uid}]}})})`);
+  const kind = path.split('/').at(-1);
+  assert(['opacity','position'].includes(kind), 'touch fixture uses a supported reveal shortcut');
+  const timeline = (await js("effectcraft.inspect()")).ui.timeline;
+  const shown = timeline.layer_reveal[String(layer)] || timeline.reveal;
+  if (shown.length!==1 || shown[0]!==kind) {
+    // Avoid interpreting a repeated shortcut as its double-press variant (TT/PP).
+    await pause(650);
+    await js(`effectcraft.request('ui.menu.invoke',${JSON.stringify({id:`timeline.reveal.${kind}`})})`);
+  }
   await js("effectcraft.request('ui.menu.invoke',{id:'timeline.scrollToLayer'})");
   await pause(150);
   return property;
