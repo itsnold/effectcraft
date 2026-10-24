@@ -106,8 +106,9 @@ fn stripes(p: &egui::Painter, r: Rect, label: Color32) {
 }
 
 /// Row height (expression editors grow with their text).
-fn row_height(row: &Row, rh: f32) -> f32 {
+fn row_height(row: &Row, rh: f32, phone: bool) -> f32 {
     match row.kind {
+        RowKind::Prop { .. } if phone => rh + 24.0,
         RowKind::Expr { lines, .. } => rh * lines as f32,
         RowKind::Waveform { .. } => rh * 3.0,
         _ => rh,
@@ -1900,19 +1901,19 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
     // ---- rows.
     let rows = with_expr_rows(build_rows(app, &comp), &comp, &app.ui.timeline, &ctx);
     let rh = if phone { t.row_h.max(32.0) } else { t.row_h };
-    let total_h: f32 = rows.iter().map(|r| row_height(r, rh)).sum();
+    let total_h: f32 = rows.iter().map(|r| row_height(r, rh, phone)).sum();
     let max_scroll = (total_h - rows_rect.height() + rh).max(0.0);
     if scroll_to == Some(crate::state::ScrollTo::Layer) {
         // The topmost selected layer, in stack order.
         let sel = &app.session.state.selected_layers;
         let top = comp.layers.iter().find(|l| sel.contains(&l.id)).map(|l| l.id);
         if let Some(i) = rows.iter().position(|r| matches!(r.kind, RowKind::Layer) && Some(r.layer) == top) {
-            app.ui.timeline.scroll_y = rows.iter().take(i).map(|r| row_height(r, rh)).sum();
+            app.ui.timeline.scroll_y = rows.iter().take(i).map(|r| row_height(r, rh, phone)).sum();
         }
     } else if let Some(crate::state::ScrollTo::Property(uid)) = scroll_to
         && let Some(i) = rows.iter().position(|r| matches!(r.kind, RowKind::Prop { uid: p } if p == uid))
     {
-        app.ui.timeline.scroll_y = rows.iter().take(i).map(|r| row_height(r, rh)).sum();
+        app.ui.timeline.scroll_y = rows.iter().take(i).map(|r| row_height(r, rh, phone)).sum();
     }
     if ui.rect_contains_pointer(rows_rect) {
         let (dy, dx, zoom) = ui.input(|i| (i.smooth_scroll_delta.y, i.smooth_scroll_delta.x, i.modifiers.alt));
@@ -1988,7 +1989,7 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
         };
         // Outline widgets never spill into the time graph (narrow timelines).
         ui.set_clip_rect(left_clip);
-        let hh = row_height(row, rh);
+        let hh = row_height(row, rh, phone);
         let r = Rect::from_min_size(pos2(rect.min.x, y), vec2(rect.width(), hh));
         y += hh;
         if r.max.y < rows_rect.min.y || r.min.y > rows_rect.max.y {
@@ -2094,6 +2095,11 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
                     }
                 } else {
                     // The selected layer's name sits in a light cell with dark text.
+                    if !layer.switches.locked {
+                        let drag_rect = row_resp.rect.intersect(Rect::from_min_max(pos2(name_x, r.min.y), r.max));
+                        crate::touch_targets::hold_drag(ui, drag_rect);
+                        app.auto.add(&format!("timeline.layer.{}.reorder", layer.id.0), drag_rect.intersect(left_clip), &layer.name);
+                    }
                     let name_col = if is_sel { Color32::from_gray(0x16) } else { t.text };
                     if is_sel {
                         let g = lp.layout_no_wrap(display_name(app, layer), Tokens::ui(12.0), name_col);
@@ -2326,6 +2332,9 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
                         }
                     }
                     app.auto.add(&format!("timeline.layer.{}.bar", layer.id.0), bar, &layer.name);
+                    if !layer.switches.locked {
+                        crate::touch_targets::hold_drag(ui, bar);
+                    }
                     // Interactions: move body, trim edges.
                     let (body_r, in_r, out_r) = trim_zones(bar);
                     let body = ui.interact(body_r, egui::Id::new(("bar", layer.id.0)), Sense::click_and_drag());
@@ -2787,7 +2796,7 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
                 let base = if is_tr_rot && prop.name == "Rotation" && layer.is_3d() { "Z Rotation".to_string() } else { prop.name.clone() };
                 let pname = if prop.has_expression() { format!("{base}  =") } else { base };
                 lp.text(pos2(name_x, cy), Align2::LEFT_CENTER, &pname, Tokens::ui(12.0), if prop.has_expression() { t.expr_text } else { t.text });
-                let name_rect = Rect::from_min_max(pos2(name_x, r.min.y), pos2(cw.switches - 2.0, r.max.y));
+                let name_rect = Rect::from_min_max(pos2(name_x, r.min.y), pos2(cw.switches - 2.0, if phone { cy + 14.0 } else { r.max.y }));
                 let name_resp = ui.interact(name_rect, egui::Id::new(("pname", uid)), Sense::click_and_drag());
                 app.auto.add(&format!("timeline.prop.{uid}.name"), name_rect, &prop.name);
                 if name_resp.drag_started() {
@@ -2804,8 +2813,10 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
                 crate::widgets::context_menu(&name_resp, |ui| prop_menu(ui, &mut app.auto, cid, layer, prop, &mut actions));
                 // Value editors.
                 let value = ectx.value(layer, prop);
-                let vx = (cw.switches + 4.0).max(name_x + 120.0);
-                let dims = value_editor(app, ui, &lp, layer, prop, &value, pos2(vx, cy), &mut actions);
+                // Phone values get their own line inside the outline, not clipped off behind
+                // the time graph. The keyframes stay aligned with the property label above.
+                let at = if phone { pos2(rect.min.x + 6.0, r.max.y - 13.0) } else { pos2((cw.switches + 4.0).max(name_x + 120.0), cy) };
+                let dims = value_editor(app, ui, &lp, layer, prop, &value, at, &mut actions);
                 if !dims.is_empty() {
                     dim_hits.push((*uid, dims));
                 }
@@ -2863,6 +2874,9 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
                         }
                         let kr = Rect::from_center_size(c, vec2(12.0, 14.0));
                         let kresp = ui.interact(kr, egui::Id::new(("key", uid, k.time.0)), Sense::click_and_drag());
+                        if !layer.switches.locked {
+                            crate::touch_targets::hold_drag(ui, kr);
+                        }
                         app.auto.add(&format!("timeline.key.{uid}.{}", fr.frame_at(ct)), kr, &format!("{} key", prop.name));
                         // Exact (layer-time ticks): keys a Quick Offset puts on subframes can share a frame.
                         app.auto.add(&format!("timeline.keyAt.{uid}.{}", k.time.0), kr, &format!("{} key", prop.name));
@@ -3230,7 +3244,7 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
         let mut yy = rows_rect.min.y - app.ui.timeline.scroll_y;
         for row in &rows {
             let cy = yy + rh / 2.0;
-            yy += row_height(row, rh);
+            yy += row_height(row, rh, phone);
             if let RowKind::Prop { uid } = row.kind
                 && cy >= br.min.y
                 && cy <= br.max.y

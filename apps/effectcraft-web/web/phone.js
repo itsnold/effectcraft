@@ -96,7 +96,7 @@ export function installPhoneWorkspace(api) {
     document.documentElement.dataset.phoneLayout = String(state.enabled);
     const actual = api.touchLayout?.()?.phonePanel || state.panel;
     for (const [id, b] of panels) b.setAttribute("aria-pressed", String(id === actual || (id === "EffectsPresets" && actual === "EffectControls")));
-    hint.textContent = actual === "Timeline" ? "Ruler: scrub · Rows: scroll · Pinch: zoom" : `${PHONE_PANELS.find(([id]) => id === actual)?.[1] || actual} · Hold for options`;
+    hint.textContent = actual === "Timeline" ? "Swipe: scroll · Hold + drag: edit · Numbers: slide" : `${PHONE_PANELS.find(([id]) => id === actual)?.[1] || actual} · Hold, then release for options`;
   });
   const invoke = (id, params = {}) => api.request("ui.menu.invoke", { id, params });
   button(toolbar, "Menu", () => commands());
@@ -125,6 +125,8 @@ export function installPhoneWorkspace(api) {
     const box = document.getElementById("touch-error");
     const options = document.createElement("div"); options.className = "phone-options"; box.append(options);
     for (const [id, label] of PHONE_PANELS) choose(options, label, () => controller.setPanel(id));
+    const preview = api.touchLayout?.()?.phonePreview !== false;
+    choose(options, preview ? "Hide live preview" : "Show live preview", () => api.request("ui.set", { phonePreview: !preview }));
     layouts(options);
   }
   async function commands() {

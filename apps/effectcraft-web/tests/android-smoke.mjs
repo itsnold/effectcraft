@@ -141,6 +141,71 @@ async function checkTimelineNavigation() {
   assert.deepEqual(await js("Promise.all([effectcraft.execute('comp.info'),effectcraft.execute('layer.tree',{time:0})])"), documentBefore, "timeline navigation must not retime layers or keys");
   return { scrubTime: scrubbed.time, slider: true, navigator: true, pinch: true, frameStep: true };
 }
+async function checkTouchEditing() {
+  await js("effectcraft.execute('layer.select',{layers:['Sideways gesture guard']})");
+  await js("effectcraft.request('ui.menu.invoke',{id:'timeline.scrollToLayer'})");
+  await js("effectcraft.request('ui.set',{timeline:{pps:100,start:0}})");
+  await pause(200);
+  const layer = (await js("effectcraft.execute('layer.tree',{depth:0})")).id;
+  const element = async (id) => {
+    const e = (await js(`effectcraft.request('ui.elements',{prefix:${JSON.stringify(id)}})`)).find(e=>e.id===id);
+    assert(e, `${id} is visible for editing`); return e;
+  };
+  const point = async (rect, fx=0.5, fy=0.5) => {
+    const bounds = await js("(()=>{const r=document.querySelector('canvas').getBoundingClientRect();return {x:r.x,y:r.y}})()");
+    const ratio = await js("effectcraft.inspect().then(i=>i.pixelsPerPoint/devicePixelRatio)");
+    return {x:bounds.x+(rect[0]+rect[2]*fx)*ratio,y:bounds.y+(rect[1]+rect[3]*fy)*ratio};
+  };
+  const drag = async (a,b,hold=true) => {
+    await touch('touchStart',[a]); if(hold) await pause(600);
+    assert(!(await js("effectcraft.touchLayout().overlay")), "holding an editable target does not open a menu first");
+    for(let n=1;n<=8;n++) { await touch('touchMove',[{x:a.x+(b.x-a.x)*n/8,y:a.y+(b.y-a.y)*n/8}]); await pause(35); }
+    await touch('touchEnd',[]); await pause(200);
+  };
+  const state = () => js("effectcraft.execute('comp.info')");
+  let before = await state();
+  const bar = (await element(`timeline.layer.${layer}.bar`)).rect;
+  const ruler = (await element('timeline.ruler')).rect;
+  const left = Math.max(bar[0]+16,ruler[0]+16), right = Math.min(bar[0]+bar[2]-16,ruler[0]+ruler[2]-40);
+  assert(right>left,"there is visible bar body to hold");
+  let a = await point([left,bar[1],right-left,bar[3]],0.3);
+  await drag(a,{x:a.x+45,y:a.y});
+  const moved = (await state()).layers.find(l=>l.id===layer), old = before.layers.find(l=>l.id===layer);
+  assert(moved.start>old.start,"hold + horizontal drag moves the layer in time");
+  assert(Math.abs((moved.out-moved.in)-(old.out-old.in))<1e-6,"moving a layer keeps its duration");
+  await js("effectcraft.execute('edit.undo')"); assert.deepEqual(await state(),before,"layer move is one undo step");
+  // Drag the actual visible name, not a switch/twirl or an engine arrange command.
+  const name = await element(`timeline.layer.${layer}.reorder`);
+  const names = await js("effectcraft.request('ui.elements',{prefix:'timeline.layer.'})");
+  const next = names.filter(e=>e.id.endsWith('.reorder')&&e.rect[3]>0&&e.rect[1]>name.rect[1]).sort((a,b)=>a.rect[1]-b.rect[1])[0];
+  assert(next,"another visible layer can be reordered past");
+  a = await point(name.rect);
+  const target = await point(next.rect,0.5,0.8);
+  await drag(a,{x:a.x,y:target.y});
+  assert.notDeepEqual((await state()).layers.map(l=>l.id),before.layers.map(l=>l.id),"hold + vertical name drag changes front/back order");
+  await js("effectcraft.execute('edit.undo')"); assert.deepEqual(await state(),before,"reordering is one undo step");
+  const opacity = await js("effectcraft.execute('prop.get',{path:'transform/opacity'})");
+  const key = (await js(`effectcraft.request('ui.elements',{prefix:'timeline.key.${opacity.uid}.'})`))[0];
+  assert(key,"keyframe is visible for a held drag");
+  a = await point(key.rect); await drag(a,{x:a.x+40,y:a.y});
+  assert.notDeepEqual((await js("effectcraft.execute('prop.get',{path:'transform/opacity'})")).keys,opacity.keys,"held keyframe drag changes key time");
+  await js("effectcraft.execute('edit.undo')");
+  assert.deepEqual((await js("effectcraft.execute('prop.get',{path:'transform/opacity'})")).keys,opacity.keys,"key drag is one undo step");
+  // Position fields must scrub immediately even inside the timeline's protected scroll region.
+  await js("effectcraft.request('ui.menu.invoke',{id:'timeline.reveal.position'})"); await pause(150);
+  const position = await js("effectcraft.execute('prop.get',{path:'transform/position'})");
+  for(const delta of [40,-40]) {
+    const value = await element(`timeline.prop.${position.uid}.value.0`);
+    a = await point(value.rect); await drag(a,{x:a.x+delta,y:a.y},false);
+    const after = await js("effectcraft.execute('prop.get',{path:'transform/position'})");
+    assert((after.value[0]-position.value[0])*delta>0,"left/right numeric swipes decrease/increase position");
+    assert.deepEqual(after.value.slice(1),position.value.slice(1),"scrubbing X leaves the other coordinates unchanged");
+    await js("effectcraft.execute('edit.undo')");
+    assert.deepEqual((await js("effectcraft.execute('prop.get',{path:'transform/position'})")).value,position.value,"numeric scrub is one undo step");
+  }
+  await js("effectcraft.request('ui.menu.invoke',{id:'timeline.reveal.opacity'})"); await pause(150);
+  return {layerMove:true,layerReorder:true,keyRetime:true,positionScrub:true,undo:true};
+}
 const deadline = setTimeout(() => { console.error("Android smoke test exceeded 5 minutes"); chrome.kill(); process.exit(1); }, 300000);
 try {
   let page;
@@ -233,6 +298,7 @@ try {
   await js("effectcraft.request('ui.menu.invoke',{id:'timeline.reveal.opacity'})");
   report.sidewaysOverKey = await sidewaysOverKey();
   report.tabletTimelineNavigation = await checkTimelineNavigation();
+  report.tabletTouchEditing = await checkTouchEditing();
   // Make the timeline genuinely overflow, then swipe on a layer name. No synthetic
   // UI scroll command: only CDP finger input may change the scroll offset.
   await js("(async()=>{for(let i=0;i<45;i++)await effectcraft.execute('layer.newNull',{name:'Touch scroll '+i})})()");
@@ -291,6 +357,24 @@ try {
   await js("effectcraft.request('ui.menu.invoke',{id:'timeline.scrollToLayer'})");
   report.phoneSidewaysOverKey = await sidewaysOverKey();
   report.phoneTimelineNavigation = await checkTimelineNavigation();
+  report.phoneTouchEditing = await checkTouchEditing();
+  const preview = (await js("effectcraft.request('ui.elements',{prefix:'phone.preview'})"))[0];
+  const phoneTimeline = (await js("effectcraft.request('ui.elements',{prefix:'panel.Timeline'})"))[0];
+  assert(preview && preview.rect[1]+preview.rect[3]<phoneTimeline.rect[1],"live preview stays visible above the phone timeline");
+  report.phoneLivePreview = true;
+  const splitter = (await js("effectcraft.request('ui.elements',{prefix:'dock.gutter.phonePreview'})"))[0];
+  assert(splitter,"live preview has a touch resize handle");
+  const canvasBounds = await js("(()=>{const r=document.querySelector('canvas').getBoundingClientRect();return {x:r.x,y:r.y}})()");
+  const splitterScale = await js("effectcraft.inspect().then(i=>i.pixelsPerPoint/devicePixelRatio)");
+  const splitterPoint = {x:canvasBounds.x+(splitter.rect[0]+splitter.rect[2]/2)*splitterScale,y:canvasBounds.y+(splitter.rect[1]+splitter.rect[3]/2)*splitterScale};
+  await touch('touchStart',[splitterPoint]);
+  for(let n=1;n<=4;n++) { await touch('touchMove',[{x:splitterPoint.x,y:splitterPoint.y+n*8}]); await pause(35); }
+  await touch('touchEnd',[]); await pause(150);
+  assert((await js("effectcraft.request('ui.elements',{prefix:'phone.preview'})"))[0].rect[3]>preview.rect[3]+10,"preview divider resizes with a real finger drag");
+  report.phonePreviewResize = true;
+  await js("effectcraft.request('ui.set',{phonePreview:false})"); await pause(150);
+  assert.equal((await js("effectcraft.request('ui.elements',{prefix:'phone.preview'})")).length,0,"preview can be hidden for more editing room");
+  await js("effectcraft.request('ui.set',{phonePreview:true})"); await pause(150);
   const phoneRuler = (await js("effectcraft.request('ui.elements',{prefix:'timeline.ruler'})"))[0];
   assert(phoneRuler.rect[2] > 180, "compact outline leaves useful space for time bars");
   await writeFile(join(out, "phone-portrait.png"), Buffer.from((await send("Page.captureScreenshot", { format: "png" })).data, "base64"));
@@ -302,6 +386,12 @@ try {
   await send("Emulation.setDeviceMetricsOverride", { width: 844, height: 390, deviceScaleFactor: 1, mobile: true });
   await pause(300);
   assert.equal(await js("effectcraft.touchLayout()?.phonePanel"), "Composition", "phone layout survives landscape rotation");
+  await js("document.querySelector('#phone-nav button[aria-label=Timeline]').click()");
+  await until("effectcraft.touchLayout()?.phonePanel==='Timeline'"); await pause(150);
+  const landscapePreview = (await js("effectcraft.request('ui.elements',{prefix:'phone.preview'})"))[0];
+  const landscapeTimeline = (await js("effectcraft.request('ui.elements',{prefix:'panel.Timeline'})"))[0];
+  assert(landscapePreview && landscapePreview.rect[0]+landscapePreview.rect[2]<landscapeTimeline.rect[0],"landscape preview is beside the timeline");
+  report.landscapeLivePreview = true;
   await writeFile(join(out, "phone-landscape.png"), Buffer.from((await send("Page.captureScreenshot", { format: "png" })).data, "base64"));
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: true });
   await until("effectcraft.touchLayout()?.phonePanel===null");

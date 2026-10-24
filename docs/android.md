@@ -34,6 +34,14 @@ services; the editing engine and codecs are unchanged Rust.
 
 ## Touch controls
 
+Version **0.1.6-alpha** adds **hold-to-drag editing in Auto**. Hold a layer bar, keyframe or
+layer name for 500 ms (until the vibration), then move that same finger: bars move/trim in
+time, keys retime, and dragging a name up/down changes layer stacking order. Release a hold
+without moving for its context menu. Quick swipes still scroll, without moving layers/keys.
+**Numbers scrub directly**: swipe left/right over Position, Scale, an effect value, etc. to
+decrease/increase it; a vertical swipe still scrolls. Tap a number to type an exact value.
+Explicit Drag mode still supports immediate editing without a hold.
+
 Version **0.1.4-alpha** keeps timeline navigation draggable in Auto: drag the **time ruler or
 playhead head** to scrub to a frame, the bottom **time-zoom slider** to change scale, or the top
 **navigator handles** to resize the visible time span. These exceptions do not include the
@@ -51,6 +59,8 @@ already fits, pinch to zoom in first; there is no offscreen time to scroll to at
 | Tap | Left click / selection |
 | Auto mode: vertical swipe in panels / menus | Scroll without selecting or editing the row underneath |
 | Auto mode: sideways swipe in timeline / media / effects lists | Scroll, without grabbing layers/keys; timeline names scroll columns on tablets |
+| Hold a layer bar / key / layer name, then drag | Move/trim / retime / reorder, without opening a menu first |
+| Slide left/right on a numeric value | Decrease/increase it; vertical swipes still scroll |
 | Auto mode: drag in viewer / horizontal drag in other panels | Move or adjust values |
 | Auto mode: drag timeline ruler / playhead head | Scrub current time, snapped to frames |
 | Drag timeline zoom slider / top navigator handles | Adjust the timeline's time scale |
@@ -58,7 +68,7 @@ already fits, pinch to zoom in first; there is no offscreen time to scroll to at
 | Frame ‹ / Frame › shortcuts | Move the playhead backward / forward one frame |
 | Auto → Scroll → Drag button | Scroll with one finger on either axis, or force editing drags (e.g. reorder layers, resize panel splitters) |
 | Drag a scrollbar / near its track | Scroll; custom tracks have a 24 CSS-pixel touch target |
-| Hold still for 500 ms | Right-click context menu; no initial left click |
+| Hold still for 500 ms, then release without moving | Right-click context menu; no initial left click |
 | Two-finger pinch | Zoom timeline time scale or composition around the gesture |
 | Two fingers moving together | Scroll panels / timeline (not a layer drag) |
 | Hand + drag | Pan composition |
@@ -77,7 +87,8 @@ migrate once to 100%; other custom scales are kept. Layer, footage and preview c
 128 MiB each; upgrading does not reset cache preferences. These limits do not bound codec or
 worker memory. WebView text/page zoom is disabled so it cannot magnify the canvas a second time.
 In Auto, panel tabs and dividers still drag to move/resize. Use Drag for vertical editing
-gestures such as reordering layer names or moving/retiming keys. Use Auto to return to safe navigation.
+gestures without a hold, such as reordering layer names or moving/retiming keys. In Auto, hold
+the target first, then drag it; ordinary swipes remain safe navigation.
 Mouse and pen input retain their native event path. Gesture movement locks to its initial scroll
 axis and originating panel, preventing accidental edits or scrolling a neighbouring panel. Rotate,
 app-switch, lost pointer capture and cancellation release active gestures and clear stale hover.
@@ -86,8 +97,12 @@ click. Adding a second finger during an already-started drag ends that drag; it 
 
 ## Phone workspace
 
-- **Preview, Timeline, Media, Effects** bottom tabs show one full-width panel at a time; **More**
+- **Preview, Timeline, Media, Effects** bottom tabs choose the editing panel; **More**
   opens Effect Controls, Properties, Text, Paragraph, Export Queue and other panels.
+- **Timeline, Properties and Effect Controls keep a live composition preview visible**: above
+  the editor in portrait, beside it in landscape. Drag the divider (or focus it and use arrow
+  keys) to resize it. **More → Hide/Show live preview** gives the editor the full area when
+  needed. Very short/narrow windows temporarily omit it rather than squeeze both panels.
 - **Menu** searches the editor's actions (e.g. New Composition, New Text, Settings, Render). Import,
   Play, Undo and Save are always at the top; precision tools and **Auto / Scroll / Drag** stay in the
   horizontally scrollable shortcut bar below the tabs.
@@ -96,6 +111,8 @@ click. Adding a second finger during an already-started drag ends that drag; it 
   **Fit time** returns to the composition's full duration. Optional columns remain accessible in
   Tablet layout.
 - Phone timeline footer zoom buttons have 44-point targets and a taller slider interaction area.
+- Timeline property values occupy a separate line below their label on phones, so Position's
+  coordinates stay inside the outline rather than disappearing behind the time graph.
 - **Layout → Auto / Phone / Tablet** overrides automatic detection and is remembered locally.
   Auto selects Phone for windows narrower than 600 CSS pixels or screens with a shortest side below
   600 CSS pixels, so rotating a phone or opening its keyboard does not switch it to the tablet dock.

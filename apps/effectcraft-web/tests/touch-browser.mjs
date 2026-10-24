@@ -16,7 +16,8 @@ const html = `<!doctype html><meta name="viewport" content="width=device-width,i
 <canvas id="effectcraft_canvas"></canvas><script type="module">
 import { installTouch, installTouchBar, dismissTouchOverlay } from '/touch.js';
 window.events=[];window.calls=[];window.scale=100;
-window.layout={pixelsPerPoint:devicePixelRatio,viewers:[[200,0,400,500]],scrolls:[[0,0,200,500]],
+ window.layout={pixelsPerPoint:devicePixelRatio,viewers:[[200,0,400,500]],scrolls:[[0,0,200,500]],
+  holdDrags:[[20,160,160,40]],scrubs:[[20,220,100,24]],
  controls:[[0,20,200,34]],controlTracks:[[20,480,160,4]],scrollbars:[[620,40,4,400]],overlay:false};
 window.effectcraft={dismissTouchOverlay,touchLayout:()=>layout,request:async(...a)=>{
  calls.push(a);if(a[0]==='ui.set'&&'phonePanel' in a[1])layout.phonePanel=a[1].phonePanel;
@@ -79,7 +80,23 @@ try {
   assert(events.some(e=>e.type==='pointerdown'&&e.y===482),"nearby zoom track is a real drag, snapped onto the slider");
   assert(events.some(e=>e.type==='mousemove'&&e.buttons===1&&e.y===482));
   assert(!events.some(e=>e.type==='wheel'));
- await swipe({x:300,y:300},{x:300,y:180});events=await js("events.splice(0)");
+  // The actual DOM path must wait for the hold, then emit only a primary drag.
+  await touch("touchStart",[{x:80,y:180}]);await pause(600);
+  events=await js("events.splice(0)");assert(!events.some(e=>e.type==='pointerdown'),"arming cannot right-click first");
+  await touch("touchMove",[{x:120,y:180}]);await pause(30);await touch("touchEnd",[]);
+  events=await js("events.splice(0)");
+  assert(events.some(e=>e.type==='pointerdown'&&e.button===0&&e.x===80));
+  assert(events.some(e=>e.type==='mousemove'&&e.buttons===1));
+  assert(!events.some(e=>e.button===2||e.type==='wheel'),"held editing is neither a context menu nor a scroll");
+  await touch("touchStart",[{x:80,y:180}]);await pause(600);await touch("touchEnd",[]);
+  events=await js("events.splice(0)");assert(events.some(e=>e.type==='pointerdown'&&e.button===2),"release a stationary hold for options");
+  await swipe({x:40,y:230},{x:140,y:230});events=await js("events.splice(0)");
+  assert(events.some(e=>e.type==='mousemove'&&e.buttons===1),"horizontal scrub works inside a scrollable panel");
+  assert(!events.some(e=>e.type==='wheel'));
+  await swipe({x:40,y:230},{x:41,y:290});events=await js("events.splice(0)");
+  assert(events.some(e=>e.type==='wheel'&&e.dy<0),"vertical swipe over a number still scrolls");
+  assert(!events.some(e=>e.type==='pointerdown'));
+  await swipe({x:300,y:300},{x:300,y:180});events=await js("events.splice(0)");
  assert.equal(events.filter(e=>e.type==='pointerdown'&&e.pointerType==='mouse').length,1);
  assert(events.some(e=>e.type==='mousemove'&&e.buttons===1));
  assert.equal(events.filter(e=>e.type==='pointerup'&&e.pointerType==='mouse').length,1);

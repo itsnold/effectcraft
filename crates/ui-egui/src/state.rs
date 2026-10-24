@@ -589,6 +589,9 @@ pub struct UiState {
     /// agents but never restored from a session onto a different-sized screen.
     #[serde(default, skip_deserializing)]
     pub phone_panel: Option<PanelKind>,
+    /// Presentation-only: hide the phone's companion live preview without changing the dock.
+    #[serde(skip)]
+    pub phone_preview_hidden: bool,
     /// Locked Composition / Timeline tabs (panel ids): opening another composition does not
     /// bring a locked panel forward (the tab's lock icon, as After Effects' viewer lock).
     #[serde(default)]
@@ -711,6 +714,7 @@ impl Default for UiState {
             panel_windows: vec![],
             maximized: None,
             phone_panel: None,
+            phone_preview_hidden: false,
             locked_tabs: BTreeSet::new(),
             viewers: Default::default(),
             active_viewer: 0,

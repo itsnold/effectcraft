@@ -203,6 +203,10 @@ pub fn handle(app: &mut EffectcraftApp, ctx: &egui::Context, req: &ControlReques
             ok(serde_json::to_value(app.auto.query(prefix)).unwrap_or_default())
         }
         "ui.set" => {
+            if let Some(value) = p.get("phonePreview") {
+                let Some(visible) = value.as_bool() else { return err("phonePreview must be true or false") };
+                app.ui.phone_preview_hidden = !visible;
+            }
             if let Some(value) = p.get("phonePanel") {
                 if value.is_null() {
                     app.ui.phone_panel = None;

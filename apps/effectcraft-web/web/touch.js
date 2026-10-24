@@ -33,10 +33,10 @@ export class TouchGesture {
       this.mode = "pending";
       this.timer = this.schedule(() => {
         if (this.mode !== "pending") return;
-        this.mode = "held";
-        this.pointer("move", p);
-        this.pointer("down", p, 2);
-        this.pointer("up", p, 2);
+        // Editable targets arm a primary drag; don't open a menu under the held finger.
+        // Releasing without moving still offers that target's context menu.
+        this.mode = ["hold-drag", "drag", "scrub"].includes(this.policy) ? "armed" : "held";
+        if (this.mode === "held") this.context(p);
         this.emit({ type: "haptic" });
       }, 500);
     } else {
@@ -47,14 +47,21 @@ export class TouchGesture {
       this.anchor = this.previous;
     }
   }
+  context(p) {
+    this.pointer("move", p);
+    this.pointer("down", p, 2);
+    this.pointer("up", p, 2);
+  }
   move(id, p) {
     if (!this.points.has(id) || ![p.x, p.y].every(Number.isFinite)) return;
     this.points.set(id, p);
     if (this.points.size === 1) {
-      if (this.mode === "pending" && Math.hypot(p.x - this.origin.x, p.y - this.origin.y) > 9) {
+      if (["pending", "armed"].includes(this.mode) && Math.hypot(p.x - this.origin.x, p.y - this.origin.y) > 9) {
         this.cancel(this.timer);
         const dx = Math.abs(p.x - this.origin.x), dy = Math.abs(p.y - this.origin.y);
-        this.mode = this.policy === "scroll" || (this.policy === "auto" && dy > dx) ? "scroll" : "drag";
+        const armed = this.mode === "armed";
+        this.mode = !armed && (this.policy === "scroll" || this.policy === "hold-drag" ||
+          (["auto", "scrub"].includes(this.policy) && dy > dx)) ? "scroll" : "drag";
         this.scrollAxis = dy > dx ? "y" : "x";
         if (this.mode === "drag") {
           this.pointer("move", this.origin);
@@ -92,10 +99,12 @@ export class TouchGesture {
     if (!this.points.has(id)) return;
     if (cancelled || ![p.x, p.y].every(Number.isFinite)) p = this.points.get(id);
     if (!cancelled && this.points.size === 1 &&
-        ((this.mode === "pending" && Math.hypot(p.x - this.origin.x, p.y - this.origin.y) > 9) ||
+        ((["pending", "armed"].includes(this.mode) && Math.hypot(p.x - this.origin.x, p.y - this.origin.y) > 9) ||
          (this.mode === "scroll" && (p.x !== this.previous.x || p.y !== this.previous.y)))) this.move(id, p);
     this.cancel(this.timer);
-    if (this.mode === "pending" && !cancelled) {
+    if (this.mode === "armed" && !cancelled) {
+      this.context(this.origin);
+    } else if (this.mode === "pending" && !cancelled) {
       this.pointer("move", p);
       this.pointer("down", p);
       this.pointer("up", p);
@@ -123,6 +132,11 @@ export function touchTarget(p, layout, bounds, density = 1, mode = "auto") {
   const point = { x: (p.x - bounds.left) / scale, y: (p.y - bounds.top) / scale };
   const contains = ([x, y, w, h]) => w > 0 && h > 0 &&
     point.x >= x && point.x <= x + w && point.y >= y && point.y <= y + h;
+  // These are the numeric widgets actually painted this frame, clipped to their panels.
+  // They take precedence over timeline scrolling, including numbers in modal dialogs.
+  if (mode === "auto" && (layout?.scrubs || []).some(contains)) {
+    return { policy: "scrub", offset: { x: 0, y: 0 } };
+  }
   if (!layout?.overlay) {
     // Ruler/playhead, time display and time-zoom controls are deliberate edits, unlike
     // swiping layer bars or keys. Prefer exact hits before expanding neighbouring tracks.
@@ -142,6 +156,9 @@ export function touchTarget(p, layout, bounds, density = 1, mode = "auto") {
   }
   const editing = !layout?.overlay && [...(layout?.viewers || []), ...(layout?.drags || [])].some((rect) => contains(rect));
   const scrolling = !layout?.overlay && (layout?.scrolls || []).some((rect) => contains(rect));
+  if (mode === "auto" && !layout?.overlay && (layout?.holdDrags || []).some(contains)) {
+    return { policy: "hold-drag", offset: { x: 0, y: 0 } };
+  }
   return { policy: mode === "auto" ? (editing ? "drag" : scrolling ? "scroll" : "auto") : mode, offset: { x: 0, y: 0 } };
 }
 
@@ -282,13 +299,16 @@ export function installTouchBar(canvas, { modifiers, controls }) {
     "Pinch to zoom in first if the whole timeline already fits. Swipe over the time bars to move through time. " +
     "Drag the time ruler / playhead to scrub; drag the bottom time-zoom slider or top navigator handles to change the time scale. " +
     "Time − / Time + / Fit time change timeline zoom; Frame ‹ / Frame › place the playhead one frame at a time. " +
-    "Drag in the viewer to edit. Use Drag mode to move/trim layers, edit keys or reorder media; switch back to Auto to navigate. " +
+    "Hold a layer bar, key or layer name until the vibration, then drag to move/trim, retime or reorder it. " +
+    "Release a hold without moving for options. Swipe left/right directly on a number to adjust it; swipe vertically to scroll. " +
+    "Drag in the viewer to edit. Drag mode also allows immediate edits without holding; switch back to Auto to navigate. " +
     "Use Scroll to force one-finger scrolling elsewhere. " +
-    "Tap to select. Hold still for 0.5 seconds for a right-click menu. " +
+    "Tap to select. Hold still for 0.5 seconds, then release for a right-click menu. " +
     "Pinch with two fingers to zoom the timeline or composition; move two fingers together to scroll panels and the timeline. " +
     "Use Hand to pan the composition. Shift enables multi-select; tap it again when finished. " +
     "Viewer / Timeline expands that panel. UI adjusts editor scale; 100% is the default, 75–90% fits more on small screens. " +
-    "Layout chooses Auto, Phone (one panel at a time) or Tablet. On phones, More opens other panels and Menu searches actions. " +
+    "Layout chooses Auto, Phone or Tablet. Phone Timeline, Properties and Effect controls keep a live preview; drag its divider to resize. " +
+    "More opens other panels or hides the live preview; Menu searches actions. " +
     "Save exports an .ecproj; session recovery alone is not a backup. " +
     "Android alpha: small projects first; software rendering and video export can be slow."
   ));

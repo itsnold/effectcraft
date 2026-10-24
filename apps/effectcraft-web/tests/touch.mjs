@@ -29,7 +29,32 @@ assert.equal(timer, null);
 
 gesture.down(1, p(20, 30)); timer();
 gesture.up(1, p(20, 30));
-assert.deepEqual(types(), [["move", 0], ["down", 2], ["up", 2], ["haptic", undefined]], "hold = one right click, no left click");
+assert.deepEqual(types(), [["haptic", undefined], ["move", 0], ["down", 2], ["up", 2]], "stationary hold release = one right click, no left click");
+
+// A hold on an editable timeline target must not open a menu before the user can drag.
+gesture.down(1, p(100, 200), "hold-drag"); timer();
+assert.deepEqual(types(), [["haptic", undefined]], "hold arms editing without selecting or opening a menu");
+gesture.move(1, p(102, 202)); assert.deepEqual(types(), [], "armed jitter is not a drag");
+gesture.move(1, p(145, 200)); gesture.up(1, p(165, 200));
+let held = events.splice(0);
+assert.deepEqual(held.map(e => [e.type, e.button]), [["move", 0], ["down", 0], ["move", 0], ["move", 0], ["up", 0]]);
+assert.equal(held[1].x, 100, "grab the original bar/key, not the pointer's later location");
+gesture.down(1, p(100, 200), "hold-drag"); timer(); types();
+gesture.up(1, p(100, 200));
+assert.deepEqual(types(), [["move", 0], ["down", 2], ["up", 2]], "stationary release retains context options");
+gesture.down(1, p(100, 200), "hold-drag"); gesture.move(1, p(50, 201)); gesture.up(1, p(50, 201));
+held = events.splice(0);
+assert(held.some(e => e.type === "wheel"));
+assert(!held.some(e => e.type === "down"), "an ordinary quick swipe over a layer still scrolls safely");
+for (const end of ["cancel", "second-finger"]) {
+  gesture.down(1, p(100, 200), "hold-drag"); timer(); types();
+  if (end === "second-finger") gesture.down(2, p(200, 200));
+  gesture.cancelAll();
+  assert.deepEqual(types(), [], `${end} while armed never clicks or edits`);
+}
+gesture.down(1, p(100, 200), "hold-drag"); timer(); types();
+gesture.up(1, p(160, 200));
+assert(types().some(([type, button]) => type === "down" && button === 0), "coalesced release after a hold is a drag, not a menu");
 
 gesture.down(1, p(20, 30));
 gesture.move(1, p(22, 33));
@@ -148,6 +173,17 @@ assert(scroll.filter(e => e.type === "wheel").every(e => e.dy === 0), "sideways 
 assert(!scroll.some(e => e.type === "down" || e.type === "up"), "scrolling across a key must not press or release it");
 assert.equal(touchTarget(p(120, 160), timelineLayout, bounds, 2, "drag").policy, "drag", "explicit Drag still edits");
 assert.equal(touchTarget(p(120, 160), { ...timelineLayout, overlay: true }, bounds, 2).policy, "auto", "an overlaid dialog keeps value dragging");
+const editingLayout = { ...timelineLayout, scrubs: [[40, 80, 40, 24]], holdDrags: [[80, 80, 100, 32]] };
+assert.equal(touchTarget(p(80, 130), editingLayout, bounds, 2).policy, "scrub", "real numeric widgets override timeline scrolling");
+assert.equal(touchTarget(p(150, 130), editingLayout, bounds, 2).policy, "hold-drag", "visible bars, keys and layer names can be held to edit");
+assert.equal(touchTarget(p(80, 130), { ...editingLayout, overlay: true }, bounds, 2).policy, "scrub", "modal numeric widgets remain usable");
+assert.equal(touchTarget(p(150, 130), { ...editingLayout, overlay: true }, bounds, 2).policy, "auto", "dialogs block held layers underneath");
+assert.equal(touchTarget(p(80, 130), editingLayout, bounds, 2, "scroll").policy, "scroll", "Scroll explicitly overrides numeric scrubbing");
+for (const [end, expected] of [[p(160, 201), "down"], [p(101, 140), "wheel"]]) {
+  gesture.down(1, p(100, 200), "scrub"); gesture.move(1, end); gesture.up(1, end);
+  const scrubbed = events.splice(0);
+  assert(scrubbed.some(e => e.type === expected), "horizontal numeric drags edit; vertical swipes scroll");
+}
 
 // Timeline navigation is not a layer edit: keep the ruler, playhead and zoom controls draggable
 // in Auto, with the same inset/density conversion as the protected layer rows.

@@ -195,6 +195,36 @@ impl EffectcraftApp {
         }
         if let Some(panel) = self.ui.phone_panel {
             // A presentation-only workspace: never replace or re-save the user's dock tree.
+            if !self.ui.phone_preview_hidden && matches!(panel, PanelKind::Timeline | PanelKind::Properties | PanelKind::EffectControls) {
+                let landscape = body.width() > body.height() * 1.35;
+                let key = egui::Id::new(("phone-preview-fraction", landscape));
+                let fraction = ctx.data(|d| d.get_temp::<f32>(key)).filter(|v| v.is_finite()).unwrap_or(if landscape { 0.38 } else { 0.34 });
+                if let Some((preview, divider, editor)) = phone_split(body, fraction) {
+                    let viewer = panels::viewers::active_panel(self);
+                    self.dock_rects = vec![(viewer, preview), (panel, editor)];
+                    ui.painter().rect_filled(body, 0.0, t.panel_bg);
+                    self.panel_body(ui, viewer, preview);
+                    self.panel_body(ui, panel, editor);
+                    self.auto.add("phone.preview", preview, "Live composition preview");
+                    let hit = divider.expand2(if landscape { vec2(6.0, 0.0) } else { vec2(0.0, 6.0) });
+                    let response = ui.interact(hit, egui::Id::new("phone-preview-divider"), Sense::drag());
+                    self.auto.add("dock.gutter.phonePreview", hit, "Resize live preview");
+                    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Other, ui.is_enabled(), "Resize live preview"));
+                    if response.hovered() || response.dragged() {
+                        ctx.set_cursor_icon(if landscape { egui::CursorIcon::ResizeHorizontal } else { egui::CursorIcon::ResizeVertical });
+                    }
+                    let c = divider.center();
+                    let half = if landscape { vec2(0.0, 22.0) } else { vec2(22.0, 0.0) };
+                    ui.painter().line_segment([c - half, c + half], Stroke::new(3.0, t.text_dim));
+                    let delta = floating_resize_delta(ui, &response);
+                    let (size, change, extent) = if landscape { (preview.width(), delta.x, body.width()) } else { (preview.height(), delta.y, body.height()) };
+                    if change.is_finite() && change != 0.0 {
+                        ctx.data_mut(|d| d.insert_temp(key, ((size + change) / extent).clamp(0.15, 0.65)));
+                        ctx.request_repaint();
+                    }
+                    return;
+                }
+            }
             self.dock_rects = vec![(panel, body)];
             ui.painter().rect_filled(body, 0.0, t.panel_bg);
             self.panel_body(ui, panel, body);
@@ -601,6 +631,35 @@ impl EffectcraftApp {
     }
 }
 
+/// Leave both panels usable, including a short landscape window or a raised keyboard.
+fn phone_split(body: Rect, fraction: f32) -> Option<(Rect, Rect, Rect)> {
+    if !body.is_finite() || !body.is_positive() || !fraction.is_finite() {
+        return None;
+    }
+    let landscape = body.width() > body.height() * 1.35;
+    let (extent, min_preview, min_editor) = if landscape { (body.width(), 160.0, 300.0) } else { (body.height(), 140.0, 240.0) };
+    let gap = 12.0;
+    if extent < min_preview + min_editor + gap {
+        return None;
+    }
+    let size = (extent * fraction).clamp(min_preview, extent - min_editor - gap);
+    let mut preview = body;
+    let mut divider = body;
+    let mut editor = body;
+    if landscape {
+        preview.max.x = body.min.x + size;
+        divider.min.x = preview.max.x;
+        divider.max.x = divider.min.x + gap;
+        editor.min.x = divider.max.x;
+    } else {
+        preview.max.y = body.min.y + size;
+        divider.min.y = preview.max.y;
+        divider.max.y = divider.min.y + gap;
+        editor.min.y = divider.max.y;
+    }
+    Some((preview, divider, editor))
+}
+
 /// The insertion mark of a tab drag: a bar between two tabs at `x`, with caps.
 fn insertion_mark(painter: &egui::Painter, x: f32, strip: Rect, col: Color32) {
     let (y0, y1) = (strip.min.y + 3.0, strip.max.y - 2.0);
@@ -650,4 +709,26 @@ fn floating_resize_delta(ui: &mut egui::Ui, response: &egui::Response) -> egui::
         });
     }
     if response.enabled() { delta } else { egui::Vec2::ZERO }
+}
+
+#[cfg(test)]
+mod phone_tests {
+    use super::*;
+
+    #[test]
+    fn split_geometry_is_bounded_at_extreme_sizes_and_fractions() {
+        for size in [vec2(0.0, 0.0), vec2(100.0, 40.0), vec2(390.0, 300.0), vec2(390.0, 676.0), vec2(844.0, 222.0)] {
+            let body = Rect::from_min_size(pos2(4.0, 68.0), size);
+            for fraction in [-f32::MAX, 0.0, 0.34, 1.0, f32::MAX] {
+                if let Some((preview, divider, editor)) = phone_split(body, fraction) {
+                    for rect in [preview, divider, editor] {
+                        assert!(rect.is_finite() && rect.is_positive());
+                        assert!(body.contains_rect(rect));
+                    }
+                    assert!(!preview.intersects(editor));
+                }
+            }
+            assert!(phone_split(body, f32::NAN).is_none());
+        }
+    }
 }

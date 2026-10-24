@@ -104,6 +104,7 @@ pub fn hot_number_at(
         return (er, out, out.is_some());
     }
     let resp = ui.interact(rect, id, Sense::click_and_drag());
+    crate::touch_targets::scrub(ui, rect);
     crate::pointer_wrap::track(&resp);
     let col = if resp.hovered() || resp.dragged() { t.accent_hover } else { t.hot_text };
     ui.painter().galley_with_override_text_color(rect.min + vec2(2.0, 2.0), galley, col);
@@ -166,6 +167,9 @@ pub fn hot_int_at(ui: &mut Ui, rect_min: egui::Pos2, id: egui::Id, value: i64, s
 pub fn drag_value(value: egui::DragValue<'_>) -> impl egui::Widget {
     move |ui: &mut Ui| {
         let response = ui.add(value);
+        if response.sense.senses_drag() {
+            crate::touch_targets::scrub(ui, response.interact_rect);
+        }
         crate::pointer_wrap::track(&response);
         response
     }

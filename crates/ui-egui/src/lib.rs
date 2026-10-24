@@ -30,6 +30,7 @@ mod pointer_wrap;
 pub mod prefs_live;
 pub mod state;
 pub mod theme;
+pub mod touch_targets;
 pub mod widgets;
 mod workspace_state;
 
@@ -1625,6 +1626,7 @@ impl EffectcraftApp {
         self.apply_gpu_failure(&ctx);
         self.run_dialog_answers();
         self.auto.begin_frame();
+        touch_targets::begin_frame(&ctx);
         self.frames.set_context(&ctx);
         if self.session.render_job.is_some() {
             self.session.poll_render();

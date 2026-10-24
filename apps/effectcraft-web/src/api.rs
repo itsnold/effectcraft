@@ -54,6 +54,7 @@ pub(crate) fn set_touch_layout(app: &effectcraft_ui_egui::EffectcraftApp, ctx: &
     let control_tracks: Vec<_> =
         app.auto.elements.iter().filter(|e| matches!(e.id.as_str(), "timeline.zoomSlider" | "timeline.navigator")).map(|e| e.rect).collect();
     let overlay = app.dialog.is_some() || effectcraft_ui_egui::widgets::any_menu_open(ctx);
+    let targets = effectcraft_ui_egui::touch_targets::current(ctx);
     TOUCH_LAYOUT.with(|layout| {
         *layout.borrow_mut() = json!({
             "pixelsPerPoint": ctx.pixels_per_point(),
@@ -62,7 +63,10 @@ pub(crate) fn set_touch_layout(app: &effectcraft_ui_egui::EffectcraftApp, ctx: &
             "scrolls": scrolls,
             "controls": controls,
             "controlTracks": control_tracks,
+            "scrubs": targets.scrubs,
+            "holdDrags": targets.hold_drags,
             "phonePanel": app.ui.phone_panel,
+            "phonePreview": !app.ui.phone_preview_hidden,
             "scrollbars": app.auto.scroll_tracks,
             "overlay": overlay,
             "keyboardFocus": ctx.egui_wants_keyboard_input(),
