@@ -141,6 +141,15 @@ async function checkTimelineNavigation() {
   assert.deepEqual(await js("Promise.all([effectcraft.execute('comp.info'),effectcraft.execute('layer.tree',{time:0})])"), documentBefore, "timeline navigation must not retime layers or keys");
   return { scrubTime: scrubbed.time, slider: true, navigator: true, pinch: true, frameStep: true };
 }
+// Revealing "selected" depends on a selection that layer.select and touch edits can clear.
+// Reveal by stable layer/property ids instead; this is idempotent, unlike reveal.opacity.
+async function revealEditingProperty(layer, path) {
+  const property = await js(`effectcraft.execute('prop.get',${JSON.stringify({layer,path})})`);
+  await js(`effectcraft.request('ui.menu.invoke',${JSON.stringify({id:'timeline.revealProps',params:{props:[{layer,prop:property.uid}]}})})`);
+  await js("effectcraft.request('ui.menu.invoke',{id:'timeline.scrollToLayer'})");
+  await pause(150);
+  return property;
+}
 async function checkTouchEditing() {
   await js("effectcraft.execute('layer.select',{layers:['Sideways gesture guard']})");
   await js("effectcraft.request('ui.menu.invoke',{id:'timeline.scrollToLayer'})");
@@ -184,7 +193,8 @@ async function checkTouchEditing() {
   await drag(a,{x:a.x,y:target.y});
   assert.notDeepEqual((await state()).layers.map(l=>l.id),before.layers.map(l=>l.id),"hold + vertical name drag changes front/back order");
   await js("effectcraft.execute('edit.undo')"); assert.deepEqual(await state(),before,"reordering is one undo step");
-  const opacity = await js("effectcraft.execute('prop.get',{path:'transform/opacity'})");
+  const opacity = await revealEditingProperty(layer, 'transform/opacity');
+  assert(opacity.keys.length>0,"fixture has an opacity keyframe to retime");
   const key = (await js(`effectcraft.request('ui.elements',{prefix:'timeline.key.${opacity.uid}.'})`))[0];
   assert(key,"keyframe is visible for a held drag");
   a = await point(key.rect); await drag(a,{x:a.x+40,y:a.y});
@@ -192,8 +202,7 @@ async function checkTouchEditing() {
   await js("effectcraft.execute('edit.undo')");
   assert.deepEqual((await js("effectcraft.execute('prop.get',{path:'transform/opacity'})")).keys,opacity.keys,"key drag is one undo step");
   // Position fields must scrub immediately even inside the timeline's protected scroll region.
-  await js("effectcraft.request('ui.menu.invoke',{id:'timeline.reveal.position'})"); await pause(150);
-  const position = await js("effectcraft.execute('prop.get',{path:'transform/position'})");
+  const position = await revealEditingProperty(layer, 'transform/position');
   for(const delta of [40,-40]) {
     const value = await element(`timeline.prop.${position.uid}.value.0`);
     a = await point(value.rect); await drag(a,{x:a.x+delta,y:a.y},false);
@@ -203,7 +212,7 @@ async function checkTouchEditing() {
     await js("effectcraft.execute('edit.undo')");
     assert.deepEqual((await js("effectcraft.execute('prop.get',{path:'transform/position'})")).value,position.value,"numeric scrub is one undo step");
   }
-  await js("effectcraft.request('ui.menu.invoke',{id:'timeline.reveal.opacity'})"); await pause(150);
+  await revealEditingProperty(layer, 'transform/opacity');
   return {layerMove:true,layerReorder:true,keyRetime:true,positionScrub:true,undo:true};
 }
 const deadline = setTimeout(() => { console.error("Android smoke test exceeded 5 minutes"); chrome.kill(); process.exit(1); }, 300000);
@@ -351,10 +360,8 @@ try {
   await js("document.querySelector('#phone-nav button[aria-label=Timeline]').click()");
   await until("effectcraft.touchLayout()?.phonePanel==='Timeline'");
   await js("effectcraft.execute('layer.select',{layers:['Sideways gesture guard']})");
-  // Reveal is a toggle; select the keyed property directly instead of hiding a previous reveal.
-  await js("effectcraft.execute('prop.select',{path:'transform/opacity'})");
-  await js("effectcraft.request('ui.menu.invoke',{id:'timeline.reveal.selected'})");
-  await js("effectcraft.request('ui.menu.invoke',{id:'timeline.scrollToLayer'})");
+  const phoneLayer = (await js("effectcraft.execute('layer.tree',{depth:0})")).id;
+  await revealEditingProperty(phoneLayer, 'transform/opacity');
   report.phoneSidewaysOverKey = await sidewaysOverKey();
   report.phoneTimelineNavigation = await checkTimelineNavigation();
   report.phoneTouchEditing = await checkTouchEditing();
