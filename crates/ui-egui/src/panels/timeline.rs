@@ -2025,8 +2025,8 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
     if let Some(f) = ctx.data(|d| d.get_temp::<ExprFocus>(expr_focus_id())) {
         match rows.iter().position(|r| matches!(r.kind, RowKind::Expr { uid, .. } if uid == f.prop)) {
             Some(i) if ctx.cumulative_pass_nr() <= f.pass.saturating_add(8) => {
-                let top: f32 = rows.iter().take(i).map(|r| row_height(r, rh)).sum();
-                let fits = (top + rows.get(i).map_or(rh, |r| row_height(r, rh)) - rows_rect.height()).max(0.0).min(top);
+                let top: f32 = rows.iter().take(i).map(|r| row_height(r, rh, phone)).sum();
+                let fits = (top + rows.get(i).map_or(rh, |r| row_height(r, rh, phone)) - rows_rect.height()).max(0.0).min(top);
                 app.ui.timeline.scroll_y = app.ui.timeline.scroll_y.min(top).max(fits);
             }
             _ => ctx.data_mut(|d| d.remove::<ExprFocus>(expr_focus_id())),
