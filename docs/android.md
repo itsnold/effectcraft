@@ -7,12 +7,12 @@ services; the editing engine and codecs are unchanged Rust.
 
 ## Requirements and installation
 
-- Android port **0.1.5-alpha** includes upstream **EffectCraft v0.16.0**
-  (`9581b53c3f8945683252af0eb5fac79e0e43aed4`). This update brings secure temporary cache
-  filenames, service-worker cache-failure recovery and expression/ScriptUI reliability fixes.
-  Upstream 0.15/0.16 added no new editing features beyond this fork's existing engine base.
+- Android port **0.1.7-alpha** includes upstream **EffectCraft v0.17.0**
+  (`362474a843ddb67555d4c2d19ad6a590388aad0e`). This update brings preview/cache improvements, effect and text
+  rendering fixes, safer file readers, layer source replacement, Cryptomatte picking and
+  upstream UI/localization improvements.
   The phone workspace, touch/timeline controls, 4096-pixel WebGL fallback, package ID and
-  project storage are preserved; the APK version code increases to 6.
+  project storage are preserved; the APK version code increases to 8.
 - Android 10 (API 29) or newer, OpenGL ES 3, and a recent **Android System WebView** (Chromium 120+
   recommended; update it through the Play Store). WebAssembly and WebGL2 must be enabled.
 - Phones get a compact, single-panel workspace in portrait and landscape; tablets keep the docked
@@ -165,11 +165,14 @@ Missing WASM is a build error, never an empty shell. The APK contains the comple
 including workers, fonts and licences. No native ABI library is needed: the same APK works on
 ARM64 and x86_64 devices with a compatible WebView.
 
-GitHub Actions builds from source on `android` pushes and manual dispatch. It runs the full upstream
-Rust gate separately, Node gesture/browser-host tests, JVM export tests, the WASM build, Android lint
+GitHub Actions builds from source on `android` pushes and manual dispatch. It verifies the workspace
+and lockfile target **0.17.0**, then runs the full upstream Rust gate separately (using nextest for
+the 0.17 dev-profile gate), Node gesture/browser-host tests, JVM export tests, the WASM build, Android lint
 and APK assembly. A headless browser test checks the Android-mode UI. It uploads the testing APK
 and checksum only after that job's checks pass. The separate Rust gate can expose existing upstream
 failures; inspect **both** jobs before distributing an artifact.
+The APK check also verifies package ID, version **0.1.7-alpha** / code **8**, launcher name and icon.
+The upstream CI workflow and release-workflow permission changes are included from v0.17.0.
 
 The cache regressions cover UUID-based temporary names and WebViews without `randomUUID` or
 file moves, including worker writes and failed moves. Service-worker regressions check that

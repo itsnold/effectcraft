@@ -6,6 +6,9 @@ The Android APK bundles the same Rust editor as WebAssembly in an offline WebVie
 right-click, one/two-finger scrolling, pinch zoom, touch shortcuts and Android document import/export.
 This is an **alpha tablet/landscape port**, not a fully redesigned mobile editor.
 
+Android **0.1.7-alpha** bundles upstream **EffectCraft v0.17.0** and preserves the phone workspace
+and touch controls. GitHub Actions builds the APK from this checkout and checks the engine version.
+
 **[Android build, installation, gestures and limitations](docs/android.md)** ·
 **[APK build workflow](https://github.com/itsnold/effectcraft/actions/workflows/android.yml)**
 
