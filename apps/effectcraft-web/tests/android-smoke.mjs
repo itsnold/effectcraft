@@ -159,6 +159,9 @@ async function revealEditingProperty(layer, path) {
     await pause(650);
     await js(`effectcraft.request('ui.menu.invoke',${JSON.stringify({id:`timeline.reveal.${kind}`})})`);
   }
+  if (!timeline.open_layers.includes(layer)) {
+    await js(`effectcraft.request('ui.set',${JSON.stringify({timeline:{openLayers:[...timeline.open_layers,layer]}})})`);
+  }
   await js("effectcraft.request('ui.menu.invoke',{id:'timeline.scrollToLayer'})");
   await pause(150);
   return property;
@@ -286,9 +289,12 @@ async function checkBoxAndTrim() {
   // Draw the actual selection rectangle around two visible keys, in both hold and button modes.
   const prop = await js(`effectcraft.execute('prop.get',{layer:${layer},path:'transform/opacity'})`);
   for (const hold of [true,false]) {
-    await js("effectcraft.execute('layer.select',{layers:[]})"); await pause(100);
-    const keys = await js(`effectcraft.request('ui.elements',{prefix:'timeline.key.${prop.uid}.'})`);
-    assert.equal(keys.length,2);
+    // Deselecting the layer collapses its property reveal; undo can restore that selection
+    // state too. Explicitly reveal it again, then clear only the keys, not their owner.
+    await js(`effectcraft.execute('layer.select',{layers:[${layer}]})`);
+    await revealEditingProperty(layer,'transform/opacity');
+    await js("effectcraft.execute('keys.select',{keys:[]})");
+    const keys = await until(`effectcraft.request('ui.elements',{prefix:'timeline.key.${prop.uid}.'}).then(e=>e.length===2?e:null)`);
     const points = keys.map(e=>point(e.rect)).sort((a,b)=>a.x-b.x);
     const a = {x:points[1].x+18,y:points[1].y+30};
     const b = {x:points[0].x-18,y:points[0].y-12};
