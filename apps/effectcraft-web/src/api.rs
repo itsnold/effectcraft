@@ -95,6 +95,7 @@ pub(crate) fn set_touch_layout(app: &effectcraft_ui_egui::EffectcraftApp, ctx: &
             "marqueeBlocks": marquee_blocks,
             "phonePanel": app.ui.phone_panel,
             "phonePreview": !app.ui.phone_preview_hidden,
+            "selection": {"layers": app.session.state.selected_layers.len(), "keys": app.session.state.selected_keys.len()},
             "scrollbars": app.auto.scroll_tracks,
             "overlay": overlay,
             "keyboardFocus": ctx.egui_wants_keyboard_input(),

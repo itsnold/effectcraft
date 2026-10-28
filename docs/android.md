@@ -7,12 +7,12 @@ services; the editing engine and codecs are unchanged Rust.
 
 ## Requirements and installation
 
-- Android port **0.1.8-alpha** includes upstream **EffectCraft v0.17.0**
+- Android port **0.1.9-alpha** includes upstream **EffectCraft v0.17.0**
   (`362474a843ddb67555d4c2d19ad6a590388aad0e`). This update brings preview/cache improvements, effect and text
   rendering fixes, safer file readers, layer source replacement, Cryptomatte picking and
   upstream UI/localization improvements.
   The phone workspace, touch/timeline controls, 4096-pixel WebGL fallback, package ID and
-  project storage are preserved; the APK version code increases to 9.
+  project storage are preserved; the APK version code increases to 10.
 - Android 10 (API 29) or newer, OpenGL ES 3, and a recent **Android System WebView** (Chromium 120+
   recommended; update it through the Play Store). WebAssembly and WebGL2 must be enabled.
 - Phones get a compact, single-panel workspace in portrait and landscape; tablets keep the docked
@@ -33,6 +33,22 @@ services; the editing engine and codecs are unchanged Rust.
   the app's private session/media storage. Never rely on it as your only copy.
 
 ## Touch controls
+
+Version **0.1.9-alpha** makes **Menu** a complete browsable menu tree on phones: File, Edit,
+Composition, Layer, Effect, Animation, View, Window and Help, including submenus, search,
+checkmarks and disabled commands. It uses the engine's live menu entries and bound parameters,
+not a hand-maintained subset. No command search is required to find the desktop top-bar menus.
+
+- **Actions** replaces the phone's Import shortcut while the Timeline has selected layers/keys.
+  Menu → Edit selection also opens it. Layers offer Split at playhead, Duplicate, Delete and
+  Precision timing; keys offer Easy Ease, Ease In/Out, Linear, Hold and Delete.
+- **Precision timing** adjusts either endpoint or moves layers one frame at a time, or accepts
+  whole-frame In/Out values relative to composition start. Multi-layer nudges are relative to
+  each layer; typed endpoints apply the same absolute time. Each tap/Apply is one undo step.
+- **Menu → + Add** exposes Text, Shape, Solid and Import media.
+- **Done** leaves Trim/Box select; the phone hint names the active mode. Dragging bars/trim edges
+  or key selection boxes near a time-area edge scrolls horizontally while zoomed in, including
+  with a stationary finger. Scrolling stops on release and cannot go beyond the comp end.
 
 Version **0.1.8-alpha** adds dedicated **Box select** and **Trim** buttons beside Auto:
 
@@ -120,8 +136,8 @@ click. Adding a second finger during an already-started drag ends that drag; it 
   the editor in portrait, beside it in landscape. Drag the divider (or focus it and use arrow
   keys) to resize it. **More → Hide/Show live preview** gives the editor the full area when
   needed. Very short/narrow windows temporarily omit it rather than squeeze both panels.
-- **Menu** searches the editor's actions (e.g. New Composition, New Text, Settings, Render). Import,
-  Play, Undo and Save are always at the top; precision tools and **Auto / Scroll / Drag** stay in the
+- **Menu** browses all editor menus or searches actions (e.g. New Composition, New Text, Settings, Render).
+  Import (or Actions with a Timeline selection), Play, Undo and Save stay at the top; **Auto / Scroll / Drag** stay in the
   horizontally scrollable shortcut bar below the tabs.
 - The timeline uses a narrower layer-name column and taller rows instead of squeezing desktop
   switches, search and parent columns over the time bars. Desktop column preferences are preserved.
@@ -188,7 +204,7 @@ the 0.17 dev-profile gate), Node gesture/browser-host tests, JVM export tests, t
 and APK assembly. A headless browser test checks the Android-mode UI. It uploads the testing APK
 and checksum only after that job's checks pass. The separate Rust gate can expose existing upstream
 failures; inspect **both** jobs before distributing an artifact.
-The APK check also verifies package ID, version **0.1.8-alpha** / code **9**, launcher name and icon.
+The APK check also verifies package ID, version **0.1.9-alpha** / code **10**, launcher name and icon.
 The upstream CI workflow and release-workflow permission changes are included from v0.17.0.
 Touch regressions include real-finger box selection and both-end trim/extend with one-step undo,
 on phone and tablet layouts, repeated under the synthetic 4096-pixel WebGL limit.

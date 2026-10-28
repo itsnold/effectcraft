@@ -120,6 +120,38 @@ fn dragging_bar_ends_trims_in_and_out() {
     assert!((i - 3.0).abs() < 1e-6 && (o - 8.0).abs() < 1.5 / 30.0 && s.abs() < 1e-6, "out extended to ~8 s, not slipped: in {i} out {o} start {s}");
 }
 
+/// A finger held just inside the viewport can trim beyond the initially visible time span.
+#[test]
+fn a_stationary_trim_near_the_edge_keeps_scrolling_and_is_one_undo() {
+    let (mut h, solid, _) = harness();
+    let ruler = h.state().auto.find("timeline.ruler").unwrap().rect;
+    h.state_mut().ui.timeline.pps = Some(f64::from(ruler[2] - 40.0) / 4.0);
+    h.state_mut().ui.timeline.start = 3.0;
+    h.run_steps(3);
+    let b = bar(&h, solid);
+    let from = pos2(b.max.x - 2.0, b.center().y);
+    let to = pos2(ruler[0] + ruler[2] - 10.0, from.y);
+    let before = timing(&h, solid);
+    h.event(Event::PointerMoved(from));
+    h.step();
+    h.event(Event::PointerButton { pos: from, button: egui::PointerButton::Primary, pressed: true, modifiers: Modifiers::NONE });
+    h.step();
+    h.event(Event::PointerMoved(to));
+    h.run_steps(3);
+    let start = h.state().ui.timeline.start;
+    let out = timing(&h, solid).1;
+    h.run_steps(30);
+    assert!(h.state().ui.timeline.start > start, "a stationary finger still scrolls time");
+    assert!(timing(&h, solid).1 > out, "scroll contributes to the trim, not just its viewport");
+    h.event(Event::PointerButton { pos: to, button: egui::PointerButton::Primary, pressed: false, modifiers: Modifiers::NONE });
+    h.run_steps(3);
+    let stopped = h.state().ui.timeline.start;
+    h.run_steps(3);
+    assert_eq!(h.state().ui.timeline.start, stopped);
+    h.state_mut().session.execute("edit.undo", json!({})).unwrap();
+    assert_eq!(timing(&h, solid), before, "the whole gesture is one undo");
+}
+
 /// Finger-target expansion must be based on the clipped native edge, not the whole layer bar.
 #[test]
 fn touch_trim_targets_are_real_visible_edges_and_exclude_locked_layers() {

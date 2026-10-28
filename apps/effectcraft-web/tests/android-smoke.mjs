@@ -320,6 +320,35 @@ async function checkBoxAndTrim() {
   assert.deepEqual((await js('effectcraft.inspect()')).selectedLayers.sort((a,b)=>a-b),layers.slice().sort((a,b)=>a-b),'outline box selects layers');
   assert.deepEqual(await state(),before,'selection leaves timing and stacking order unchanged');
   await button(boxTitle);
+  if (phone) {
+    const click = async selector => { await js(`document.querySelector(${JSON.stringify(selector)}).click()`); await pause(100); };
+    await click('#phone-toolbar button[aria-label="Menu"]');
+    await until("document.querySelector('#phone-commands button[aria-label=\"Open File menu\"]')!==null");
+    for (const name of ['File','Edit','Composition','Layer','View','Window','Help'])
+      assert(await js(`!!document.querySelector('#phone-commands button[aria-label="Open ${name} menu"]')`), `${name} menu is reachable on a phone`);
+    await writeFile(join(out,'phone-menus.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    await click('#phone-commands button[aria-label="Open View menu"]');
+    const grid = (await js('effectcraft.inspect()')).ui.viewer.grid;
+    await click('#phone-commands button[data-command="view.grid"]');
+    assert.equal((await js('effectcraft.inspect()')).ui.viewer.grid,!grid,'phone menu invokes the actual View command');
+    await js("effectcraft.request('ui.menu.invoke',{id:'view.grid'})");
+    await js(`effectcraft.execute('layer.select',{layers:[${layer}]})`);
+    await click('#phone-toolbar button[aria-label="Menu"]');
+    await until("document.querySelector('#touch-error button[aria-label=\"Edit selection\"]')!==null");
+    await click('#touch-error button[aria-label="Edit selection"]');
+    await until("document.querySelector('#touch-error button[aria-label=\"Precision timing\"]')!==null");
+    await click('#touch-error button[aria-label="Precision timing"]');
+    await until("document.querySelector('#touch-error input[aria-label=\"In frame\"]')!==null");
+    await click('#touch-error button[aria-label="In +1f"]');
+    const timed = (await state()).layers.find(l=>l.id===layer);
+    assert(Math.abs(timed.in-before.layers.find(l=>l.id===layer).in-1/30)<1e-6,'precision trim moves exactly one frame');
+    await js("effectcraft.execute('edit.undo')"); assert.deepEqual(await state(),before,'precision tap is one undo');
+    await js("document.querySelector('#touch-error input[aria-label=\"In frame\"]').value='50'");
+    await click('#touch-error button[aria-label="Apply In"]');
+    assert(Math.abs((await state()).layers.find(l=>l.id===layer).in-50/30)<1e-6,'typed frame applies exact timing');
+    await js("effectcraft.execute('edit.undo')"); assert.deepEqual(await state(),before);
+    await js('effectcraft.dismissTouchOverlay()');
+  }
   await js(`effectcraft.execute('comp.open',{comp:${original.activeComp}})`);
   if (phone) await js("effectcraft.request('ui.set',{phonePanel:'Timeline'})");
   await js(`effectcraft.request('ui.set',{timeline:{pps:${original.ui.timeline.pps},start:${original.ui.timeline.start}}})`);

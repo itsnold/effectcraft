@@ -111,7 +111,7 @@ jobs:
       - name: Verify APK launcher name and icon
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging packaging/android/app/build/outputs/apk/debug/app-debug.apk > target/android-badging.txt
-          grep -F "package: name='io.github.itsnold.ecdroid' versionCode='9' versionName='0.1.8-alpha'" target/android-badging.txt
+          grep -F "package: name='io.github.itsnold.ecdroid' versionCode='10' versionName='0.1.9-alpha'" target/android-badging.txt
           grep -F "application-label:'EffectCraft'" target/android-badging.txt
           grep -E "application: label='EffectCraft' icon='res/.+'" target/android-badging.txt
       - name: Checksum

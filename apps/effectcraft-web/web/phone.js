@@ -8,6 +8,24 @@ export const PHONE_PANELS = [
   ["RenderQueue", "Export queue"], ["History", "History"], ["MediaBrowser", "Media browser"],
 ];
 
+// Preserve the engine's menu order, nested paths, bound parameters and duplicate command ids.
+export function menuLevel(items, path = [], query = "") {
+  const text = query.trim().toLocaleLowerCase();
+  if (text) return { groups: [], actions: items.filter(item => item.id &&
+    [...(item.path || []), item.label].join(" ").toLocaleLowerCase().includes(text)) };
+  const matches = items.filter(item => item.id && path.every((part, i) => item.path?.[i] === part));
+  return { groups: [...new Set(matches.map(item => item.path?.[path.length]).filter(Boolean))],
+    actions: matches.filter(item => (item.path || []).length === path.length) };
+}
+
+export function timingParams(layers, field, frames, frameRate) {
+  if (!layers.length || !["in", "out", "delta"].includes(field) || !Number.isSafeInteger(frames) ||
+      !Number.isFinite(frameRate) || frameRate <= 0) throw new Error("Enter a whole frame number and select a layer.");
+  const seconds = frames / frameRate;
+  if (!Number.isFinite(seconds)) throw new Error("Frame number is out of range.");
+  return { layers, [field]: seconds };
+}
+
 export function wantsPhoneLayout(width, screenWidth, screenHeight) {
   // Screen dimensions don't shrink when an IME opens. Still adapt to a narrow split window.
   return Number.isFinite(width) && width > 0 && (width < 600 ||
@@ -100,7 +118,7 @@ export function installPhoneWorkspace(api) {
   });
   const invoke = (id, params = {}) => api.request("ui.menu.invoke", { id, params });
   button(toolbar, "Menu", () => commands());
-  button(toolbar, "Import", () => invoke("file.import"));
+  const selectionButton = button(toolbar, "Import", () => selectionButton.dataset.edit === "true" ? selectionActions() : invoke("file.import"));
   button(toolbar, "Play", () => api.request("ui.playback", {}), "Play / stop preview");
   button(toolbar, "Undo", () => invoke("edit.undo"));
   button(toolbar, "Save", () => invoke("file.save"));
@@ -130,29 +148,113 @@ export function installPhoneWorkspace(api) {
     layouts(options);
   }
   async function commands() {
-    showTouchError("Actions — search for New Composition, Text, Settings, Render…");
+    showTouchError("Editor menus — browse a category or search all commands.");
     const box = document.getElementById("touch-error");
+    box.setAttribute("aria-label", "Editor menus");
+    const quick = document.createElement("div"); quick.className = "phone-options";
+    button(quick, "+ Add", () => addItems());
+    button(quick, "Edit selection", () => selectionActions());
+    box.append(quick);
     const input = document.createElement("input"); input.type = "search";
     input.placeholder = "Find an action…"; input.setAttribute("aria-label", "Search editor actions");
     const list = document.createElement("div"); list.id = "phone-commands";
     box.append(input, list);
     const items = await api.request("ui.menu.list", {});
     if (!box.isConnected) return;
+    let path = [];
     const fill = () => {
       list.replaceChildren();
-      const query = input.value.trim().toLocaleLowerCase();
-      const common = new Set(["app.newComp", "comp.new", "layer.newText", "layer.newSolid", "app.settings", "file.open", "file.save", "file.import"]);
-      const matches = items.filter((item) => item.id && (query ? [...(item.path || []), item.label].join(" ").toLocaleLowerCase().includes(query) : common.has(item.id))).slice(0, 60);
-      for (const item of matches) {
-        const b = button(list, item.label, async () => {
+      const query = input.value.trim();
+      if (path.length && !query) button(list, "‹ Back", () => { path.pop(); fill(); });
+      const heading = document.createElement("p"); heading.textContent = query ? "Search results" : path.join(" › ") || "All menus"; list.append(heading);
+      const { groups, actions } = menuLevel(items, path, query);
+      for (const group of groups) button(list, `${group} ›`, () => { path.push(group); fill(); }, `Open ${group} menu`);
+      for (const item of actions) {
+        const b = button(list, `${item.checked === true ? "✓ " : ""}${item.label}`, async () => {
           box.remove(); await invoke(item.id, item.params || {});
         });
         b.disabled = !item.enabled;
-        const path = document.createElement("small"); path.textContent = (item.path || []).join(" › "); b.append(path);
+        b.dataset.command = item.id;
+        if (typeof item.checked === "boolean") b.setAttribute("aria-pressed", String(item.checked));
+        const detail = document.createElement("small"); detail.textContent = [...(query ? item.path || [] : []), item.shortcut].filter(Boolean).join(" › "); b.append(detail);
       }
-      if (!matches.length) list.textContent = "No matching actions";
+      if (!groups.length && !actions.length) list.append("No matching actions");
     };
     input.oninput = fill; fill();
+  }
+  function addItems() {
+    showTouchError("Add to your composition");
+    const box = document.getElementById("touch-error");
+    const options = document.createElement("div"); options.className = "phone-options"; box.append(options);
+    for (const [label, id, params] of [["Text", "layer.newText"], ["Shape", "layer.newShape", {kind:"rectangle"}],
+      ["Solid", "layer.newSolid"], ["Import media", "file.import"]]) {
+      button(options, label, async () => { box.remove(); await invoke(id, params || {}); });
+    }
+  }
+  async function selectionActions() {
+    const snapshot = await api.inspect();
+    const layers = snapshot.selectedLayers;
+    showTouchError(snapshot.selectedKeys ? `${snapshot.selectedKeys} selected keyframes` : `${layers.length} selected layers`);
+    const box = document.getElementById("touch-error"); box.setAttribute("aria-label", "Selection actions");
+    const options = document.createElement("div"); options.className = "phone-options"; box.append(options);
+    const run = async (id, params = {}) => {
+      const current = await api.inspect();
+      if (current.activeComp !== snapshot.activeComp || JSON.stringify(current.selectedLayers) !== JSON.stringify(layers) || current.selectedKeys !== snapshot.selectedKeys)
+        throw new Error("Selection changed. Reopen Edit selection before editing.");
+      await api.request("ui.set", { focused: "Timeline" });
+      box.remove(); await api.execute(id, params);
+    };
+    if (snapshot.selectedKeys) {
+      for (const [label, id, params] of [["Easy Ease", "keys.easyEase"], ["Ease In", "keys.easyEaseIn"],
+        ["Ease Out", "keys.easyEaseOut"], ["Linear", "keys.interpolation", {interpolation:"linear"}],
+        ["Toggle Hold", "keys.toggleHold"], ["Delete keys", "keys.delete"]]) button(options, label, () => run(id, params || {}));
+    } else {
+      for (const [label, id] of [["Split at playhead", "edit.splitLayer"], ["Duplicate", "edit.duplicate"], ["Delete layers", "edit.clear"]]) {
+        button(options, label, () => run(id, {layers})).disabled = !layers.length;
+      }
+      button(options, "Precision timing", () => precisionTiming(snapshot)).disabled = !layers.length;
+    }
+    button(options, "+ Add", () => addItems());
+  }
+  async function precisionTiming(snapshot) {
+    const comp = await api.execute("comp.info", {comp:snapshot.activeComp});
+    if (!comp.layers.some(layer => snapshot.selectedLayers.includes(layer.id))) throw new Error("Select a layer first.");
+    showTouchError("Precision timing — frame numbers from composition start. Each tap or Apply is one undo step.");
+    const box = document.getElementById("touch-error"); box.setAttribute("aria-label", "Precision timing");
+    const status = document.createElement("p"); status.setAttribute("role", "status"); box.append(status);
+    const fields = new Map();
+    const refresh = async () => {
+      const info = await api.execute("comp.info", {comp:snapshot.activeComp});
+      const layer = info.layers.find(layer => layer.id === snapshot.selectedLayers[0]);
+      if (!layer) throw new Error("The layer was removed.");
+      status.textContent = `${snapshot.selectedLayers.length} layers · ${info.frameRate} fps · In ${Math.round(layer.in*info.frameRate)} · Out ${Math.round(layer.out*info.frameRate)}`;
+      for (const [field, input] of fields) input.value = String(Math.round(layer[field]*info.frameRate));
+    };
+    let busy = false;
+    const apply = async params => {
+      if (busy) return;
+      busy = true;
+      try {
+        if ((await api.inspect()).activeComp !== snapshot.activeComp) throw new Error("Composition changed. Reopen Precision timing.");
+        await api.execute("layer.timing", {comp:snapshot.activeComp,...params});
+        await refresh();
+      } finally { busy = false; }
+    };
+    for (const [field, label] of [["in","In"],["out","Out"]]) {
+      const row = document.createElement("div"); row.className = "phone-options";
+      const input = document.createElement("input"); input.type = "number"; input.step = "1";
+      input.setAttribute("aria-label", `${label} frame`); fields.set(field,input); box.append(row);
+      button(row, `${label} −1f`, () => apply({layers:snapshot.selectedLayers,[`${field}Delta`]:-1/comp.frameRate}));
+      button(row, `${label} +1f`, () => apply({layers:snapshot.selectedLayers,[`${field}Delta`]:1/comp.frameRate}));
+      row.append(input);
+      button(row, `Apply ${label}`, () => {
+        if (!input.value.trim()) throw new Error("Enter a whole frame number.");
+        return apply(timingParams(snapshot.selectedLayers,field,Number(input.value),comp.frameRate));
+      });
+    }
+    const moves = document.createElement("div"); moves.className = "phone-options"; box.append(moves);
+    for (const frames of [-1,1]) button(moves, `Move ${frames>0?"+":""}${frames}f`, () => apply(timingParams(snapshot.selectedLayers,"delta",frames,comp.frameRate)));
+    await refresh();
   }
   const layoutButton = button(document.getElementById("touch-bar"), "Layout", () => {
     showTouchError("Choose the workspace for this screen.");
@@ -165,13 +267,26 @@ export function installPhoneWorkspace(api) {
     controller.sync().catch((e) => showTouchError(String(e)));
   };
   window.addEventListener("resize", refresh);
+  const modeHint = () => {
+    const mode = document.getElementById("touch-bar")?.dataset.mode;
+    if (controller.enabled && controller.panel === "Timeline" && ["box", "trim"].includes(mode))
+      hint.textContent = mode === "box" ? "BOX SELECT · Start on empty space · Done to finish" : "TRIMMING · Drag either clip edge · Done to finish";
+  };
+  window.addEventListener("effectcraft-touch-mode", modeHint);
   // Keep tab feedback in sync when applying an effect brings Effect Controls forward.
   setInterval(() => {
     if (!controller.enabled || controller.pending || document.hidden) return;
     const panel = api.touchLayout?.()?.phonePanel;
-    if (PHONE_PANELS.some(([id]) => id === panel)) {
-      controller.panel = panel; controller.applied = panel; controller.render(controller);
-    }
+      if (PHONE_PANELS.some(([id]) => id === panel)) {
+        controller.panel = panel; controller.applied = panel; controller.render(controller);
+      }
+      modeHint();
+      // Read a cheap synchronous snapshot; do not queue control requests every half-second.
+      const selected = api.touchLayout?.()?.selection;
+      const editing = panel === "Timeline" && (selected?.layers > 0 || selected?.keys > 0);
+      selectionButton.dataset.edit = String(editing);
+      selectionButton.textContent = editing ? "Actions" : "Import";
+      selectionButton.setAttribute("aria-label", editing ? "Edit selection" : "Import");
   }, 500);
   return {
     controller,

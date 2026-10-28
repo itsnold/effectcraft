@@ -292,10 +292,13 @@ export function installTouchBar(canvas, { modifiers, controls }) {
   };
   const invoke = (id, params = {}) => window.effectcraft.request("ui.menu.invoke", { id, params });
   const updateModes = () => {
+    bar.dataset.mode = controls.mode;
     mode.textContent = controls.mode[0].toUpperCase() + controls.mode.slice(1);
     mode.setAttribute("aria-label", `Touch mode: ${mode.textContent}. Tap to switch to Scroll or Drag`);
     box.setAttribute("aria-pressed", String(controls.mode === "box"));
     trim.setAttribute("aria-pressed", String(controls.mode === "trim"));
+    done.hidden = !["box", "trim"].includes(controls.mode);
+    window.dispatchEvent(new CustomEvent("effectcraft-touch-mode", { detail: controls.mode }));
   };
   const mode = button("Auto", "Touch mode: Auto. Tap to switch to Scroll or Drag", () => {
     const modes = ["auto", "scroll", "drag"];
@@ -310,6 +313,7 @@ export function installTouchBar(canvas, { modifiers, controls }) {
     controls.mode = controls.mode === "trim" ? "auto" : "trim";
     updateModes();
   });
+  const done = button("Done", "Finish trimming or box selection", () => { controls.mode = "auto"; updateModes(); });
   updateModes();
   button("UI", "Adjust editor UI scale", () => showScalePicker());
   button("Time −", "Zoom timeline out", () => invoke("timeline.zoomOut"));

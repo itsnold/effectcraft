@@ -242,6 +242,19 @@ fn edge_scroll_speed_x(x0: f32, x1: f32, x: f32) -> f32 {
     (depth / 40.0).clamp(-3.0, 3.0) * 400.0 + depth.signum() * 100.0
 }
 
+/// Keep an edit reachable without dragging a finger outside the canvas. Return the time
+/// shift so the edit includes the scroll even when the pointer itself stops moving.
+fn edit_edge_scroll(start: f64, duration: f64, pps: f64, x0: f32, x1: f32, x: f32, dt: f32) -> f64 {
+    if ![start, duration, pps, f64::from(x0), f64::from(x1), f64::from(x), f64::from(dt)].iter().all(|v| v.is_finite()) || pps <= 0.0 {
+        return 0.0;
+    }
+    let zone = 24.0_f32.min((x1 - x0).max(0.0) / 3.0);
+    let speed = edge_scroll_speed_x(x0 + zone, x1 - zone, x);
+    let hi = (duration - f64::from((x1 - x0).max(0.0)) / pps).max(0.0);
+    let next = (start + f64::from(speed * dt.clamp(0.0, 0.1)) / pps).clamp(0.0, hi.max(start));
+    next - start
+}
+
 /// The timeline's first visible time (`start`, showing `span` seconds of a `duration` comp)
 /// paged so the CTI at `cti` is in view: unchanged while it is, else the page that starts at
 /// the CTI (as After Effects pages the Timeline during a preview).
@@ -2572,6 +2585,25 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
                             let acc_id = egui::Id::new(("bar-acc", layer.id.0, kind));
                             let mut acc: f32 = ctx.data(|d| d.get_temp(acc_id).unwrap_or(0.0));
                             acc += resp.drag_delta().x;
+                            if !layer.switches.locked
+                                && app.ui.timeline.pps.is_some()
+                                && let Some(ptr) = resp.interact_pointer_pos()
+                            {
+                                let shift = edit_edge_scroll(
+                                    app.ui.timeline.start,
+                                    comp.duration.seconds(),
+                                    pps,
+                                    graph_x0,
+                                    graph_x1,
+                                    ptr.x,
+                                    ctx.input(|i| i.stable_dt),
+                                );
+                                if shift != 0.0 {
+                                    app.ui.timeline.start += shift;
+                                    acc += (shift * pps) as f32;
+                                    ctx.request_repaint();
+                                }
+                            }
                             let frames = ((acc as f64 / pps) / fd).trunc() as i64;
                             if frames != 0 {
                                 acc -= (frames as f64 * fd * pps) as f32;
@@ -3334,10 +3366,24 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
     if let (true, Some(origin), Some(cur)) =
         (empty.dragged(), empty.interact_pointer_pos().and_then(|_| ctx.input(|i| i.pointer.press_origin())), empty.interact_pointer_pos())
     {
+        let scroll_id = egui::Id::new("tl-box-scroll-origin");
+        if empty.drag_started() {
+            ctx.data_mut(|d| d.insert_temp(scroll_id, tm.start));
+        }
+        let start = ctx.data(|d| d.get_temp::<f64>(scroll_id)).unwrap_or(tm.start);
+        let origin = pos2(origin.x - ((tm.start - start) * pps) as f32, origin.y);
         let br = Rect::from_two_pos(origin, cur);
         gp.rect_filled(br, 0.0, t.accent.gamma_multiply(0.12));
         gp.rect_stroke(br, 0.0, Stroke::new(1.0, t.accent), StrokeKind::Middle);
         ctx.data_mut(|d| d.insert_temp(egui::Id::new("tl-box"), br));
+        ctx.data_mut(|d| d.insert_temp(egui::Id::new("tl-box-painted-start"), tm.start));
+        if app.ui.timeline.pps.is_some() {
+            let shift = edit_edge_scroll(tm.start, comp.duration.seconds(), pps, graph_x0, graph_x1, cur.x, ctx.input(|i| i.stable_dt));
+            if shift != 0.0 {
+                app.ui.timeline.start += shift;
+                ctx.request_repaint();
+            }
+        }
     }
     // Layer reorder drag: a line where the layers will land; the release moves them there.
     if let Some(moving) = ctx.data(|d| d.get_temp::<Vec<u64>>(layer_drag_id())) {
@@ -3438,6 +3484,7 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
         && let Some(br) = ctx.data(|d| d.get_temp::<Rect>(egui::Id::new("tl-box")))
     {
         ctx.data_mut(|d| d.remove::<Rect>(egui::Id::new("tl-box")));
+        let tm = TMap { start: ctx.data(|d| d.get_temp::<f64>(egui::Id::new("tl-box-painted-start"))).unwrap_or(tm.start), ..tm };
         let mut keys = vec![];
         let mut yy = rows_rect.min.y - app.ui.timeline.scroll_y;
         for row in &rows {
@@ -4618,6 +4665,18 @@ mod tests {
         assert_eq!(edge_scroll_speed_x(100.0, 500.0, 300.0), 0.0);
         assert!(edge_scroll_speed_x(100.0, 500.0, 501.0) > 0.0 && edge_scroll_speed_x(100.0, 500.0, 99.0) < 0.0);
         assert!(edge_scroll_speed_x(100.0, 500.0, 600.0) > edge_scroll_speed_x(100.0, 500.0, 520.0));
+    }
+
+    #[test]
+    fn touch_edit_edge_scroll_is_bounded_and_handles_invalid_geometry() {
+        let shift = |start, x| edit_edge_scroll(start, 10.0, 100.0, 100.0, 500.0, x, 0.016);
+        assert_eq!(shift(3.0, 300.0), 0.0);
+        assert!(shift(3.0, 490.0) > 0.0);
+        assert!(shift(3.0, 110.0) < 0.0);
+        assert_eq!(shift(0.0, 110.0), 0.0);
+        assert_eq!(shift(6.0, 490.0), 0.0);
+        assert_eq!(shift(3.0, f32::NAN), 0.0);
+        assert_eq!(edit_edge_scroll(0.0, 10.0, 0.0, 100.0, 500.0, 490.0, 0.016), 0.0);
     }
 
     /// #864: picking only a mode in a layer's Track Matte menu sets a matte (the layer above);

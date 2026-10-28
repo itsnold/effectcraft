@@ -191,8 +191,9 @@ try {
   const canvasBox=await js("(()=>{const r=document.querySelector('canvas').getBoundingClientRect();return {top:r.top,bottom:r.bottom,width:r.width}})()");
   assert.equal(canvasBox.top,68);assert.equal(canvasBox.bottom,744);assert.equal(canvasBox.width,390);
   await js("document.querySelector('#phone-toolbar button[aria-label=Menu]').click()");await pause(100);
-  assert.equal(await js("document.querySelector('#phone-commands button').textContent"),'New CompositionComposition');
-  await js("document.querySelector('#phone-commands button').click()");await pause(100);
+   assert.equal(await js("document.querySelector('#phone-commands button').textContent"),'Composition ›');
+   await js("document.querySelector('#phone-commands button').click()");await pause(50);
+   await js("[...document.querySelectorAll('#phone-commands button')].find(b=>b.textContent==='New Composition').click()");await pause(100);
   assert.equal(await js("calls.at(-1)[1].id"),'comp.new');
   for(const [label,id] of [['Zoom timeline in','timeline.zoomIn'],['Zoom timeline out','timeline.zoomOut'],
    ['Fit the whole composition in the timeline','timeline.zoomFit'],['Move playhead one frame forward','time.nextFrame'],['Move playhead one frame backward','time.previousFrame']]) {

@@ -7,8 +7,8 @@ android {
         applicationId = "io.github.itsnold.ecdroid"
         minSdk = 29
         targetSdk = 35
-        versionCode = 9
-        versionName = "0.1.8-alpha"
+        versionCode = 10
+        versionName = "0.1.9-alpha"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     compileOptions {
