@@ -384,7 +384,9 @@ try {
   await until("effectcraft.inspect().then(i=>i.ui.tool==='Hand')");
   await js("effectcraft.request('ui.set',{tool:'Selection'})");
   await js("effectcraft.request('ui.menu.invoke',{id:'window.maximizePanel',params:{panel:'Timeline'}})");
-  await pause(150); // Let the new layout replace the previous frame's automation rectangles.
+  // A command reply can arrive before the next UI pass paints the maximized layout. Wait for
+  // its real panel geometry; otherwise a stale row coordinate holds empty space instead.
+  await until("effectcraft.request('ui.elements',{prefix:'panel.Timeline'}).then(e=>e.some(p=>p.rect[2]>innerWidth-20&&p.rect[3]>innerHeight-180))");
   const elements = await js("effectcraft.request('ui.elements',{prefix:'timeline.'})");
   const row = elements.find((e) => /^timeline\.layer\.\d+\.row$/.test(e.id));
   // Long-press on a layer row, not a synthetic API click: validates capture and right-click routing.
@@ -518,6 +520,7 @@ try {
   report.chromeStderr = stderr;
   console.error(report.error);
   if (ws?.readyState === WebSocket.OPEN) {
+    try { report.lastTouchLayout = await js('effectcraft.touchLayout()'); } catch {}
     try { await writeFile(join(out, "failure.png"), Buffer.from((await send("Page.captureScreenshot", { format: "png" })).data, "base64")); } catch {}
   }
   process.exitCode = 1;
