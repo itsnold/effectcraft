@@ -222,6 +222,9 @@ assert.equal(touchTarget(css(240, 95), edgeLayout, editingBounds, 2, 'box').poli
 const empty = css(240, 150);
 assert.equal(touchTarget(empty, edgeLayout, editingBounds, 2).policy, 'hold-drag', 'hold on empty space arms a selection rectangle');
 assert.equal(touchTarget(empty, edgeLayout, editingBounds, 2, 'box').policy, 'drag', 'Box select draws immediately');
+const phoneProperty = { ...edgeLayout, marqueeBlocks: [[20, 130, 80, 56], [210, 138, 12, 14]] };
+assert.equal(touchTarget(css(240, 170), phoneProperty, editingBounds, 2).policy, 'hold-drag', 'blank time area under a tall phone property row can start a box');
+assert.equal(touchTarget(css(215, 145), phoneProperty, editingBounds, 2, 'box').policy, 'scroll', 'the key itself still blocks box starts');
 assert.equal(touchTarget(empty, { ...edgeLayout, overlay: true }, editingBounds, 2, 'box').policy, 'auto');
 for (const [policy, wait, expected] of [['hold-drag', true, 'down'], ['hold-drag', false, 'wheel'], ['drag', false, 'down']]) {
   gesture.down(1, empty, policy);

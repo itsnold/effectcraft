@@ -65,7 +65,18 @@ pub(crate) fn set_touch_layout(app: &effectcraft_ui_egui::EffectcraftApp, ctx: &
                 || e.id.starts_with("timeline.group.")
                 || e.id.starts_with("timeline.key.")
         })
-        .map(|e| e.rect)
+        .map(|e| {
+            let mut rect = e.rect;
+            // Property rows span the time area too (and are taller on phones). Only their
+            // outline owns controls; blank time-area space between/under keys can marquee.
+            if e.id.starts_with("timeline.prop.")
+                && e.id.ends_with(".row")
+                && let Some(outline) = app.auto.find("timeline.layerMarquee")
+            {
+                rect[2] = (outline.rect[0] + outline.rect[2] - rect[0]).clamp(0.0, rect[2].max(0.0));
+            }
+            rect
+        })
         .collect();
     let overlay = app.dialog.is_some() || effectcraft_ui_egui::widgets::any_menu_open(ctx);
     let targets = effectcraft_ui_egui::touch_targets::current(ctx);
