@@ -2099,6 +2099,9 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
     // Registered before the rows so keys, bars and editors on top of it get the pointer first.
     let empty_rect = if graph_on { Rect::NOTHING } else { Rect::from_min_max(pos2(graph_x0, rows_rect.min.y), rows_rect.max) };
     let empty = ui.interact(empty_rect, egui::Id::new("tl-graph-bg"), Sense::click_and_drag());
+    if !graph_on {
+        app.auto.add("timeline.keyMarquee", empty_rect, "Drag empty time area to select keyframes");
+    }
     let outline_rect = Rect::from_min_max(rows_rect.min, pos2(graph_x0 - 1.0, rows_rect.max.y));
     let outline_empty = ui.interact(outline_rect, egui::Id::new("tl-layer-bg"), Sense::click_and_drag());
     app.auto.add("timeline.layerMarquee", outline_rect, "Drag empty outline to select layers");
@@ -2511,6 +2514,15 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
                     }
                     // Interactions: move body, trim edges.
                     let (body_r, in_r, out_r) = trim_zones(bar);
+                    if !layer.switches.locked {
+                        crate::touch_targets::trim(ui, in_r);
+                        crate::touch_targets::trim(ui, out_r);
+                        if phone && is_sel {
+                            for x in [bar.min.x + 2.0, bar.max.x - 2.0] {
+                                gp.line_segment([pos2(x, bar.min.y + 4.0), pos2(x, bar.max.y - 4.0)], Stroke::new(2.0, t.text));
+                            }
+                        }
+                    }
                     let body = ui.interact(body_r, egui::Id::new(("bar", layer.id.0)), Sense::click_and_drag());
                     let lin = ui.interact(in_r, egui::Id::new(("bar-in", layer.id.0)), Sense::drag());
                     let lout = ui.interact(out_r, egui::Id::new(("bar-out", layer.id.0)), Sense::drag());

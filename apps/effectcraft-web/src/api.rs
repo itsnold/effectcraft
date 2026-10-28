@@ -53,6 +53,20 @@ pub(crate) fn set_touch_layout(app: &effectcraft_ui_egui::EffectcraftApp, ctx: &
         .collect();
     let control_tracks: Vec<_> =
         app.auto.elements.iter().filter(|e| matches!(e.id.as_str(), "timeline.zoomSlider" | "timeline.navigator")).map(|e| e.rect).collect();
+    let marquees: Vec<_> =
+        app.auto.elements.iter().filter(|e| matches!(e.id.as_str(), "timeline.layerMarquee" | "timeline.keyMarquee")).map(|e| e.rect).collect();
+    let marquee_blocks: Vec<_> = app
+        .auto
+        .elements
+        .iter()
+        .filter(|e| {
+            (e.id.starts_with("timeline.layer.") && (e.id.ends_with(".row") || e.id.ends_with(".bar")))
+                || e.id.starts_with("timeline.prop.")
+                || e.id.starts_with("timeline.group.")
+                || e.id.starts_with("timeline.key.")
+        })
+        .map(|e| e.rect)
+        .collect();
     let overlay = app.dialog.is_some() || effectcraft_ui_egui::widgets::any_menu_open(ctx);
     let targets = effectcraft_ui_egui::touch_targets::current(ctx);
     TOUCH_LAYOUT.with(|layout| {
@@ -65,6 +79,9 @@ pub(crate) fn set_touch_layout(app: &effectcraft_ui_egui::EffectcraftApp, ctx: &
             "controlTracks": control_tracks,
             "scrubs": targets.scrubs,
             "holdDrags": targets.hold_drags,
+            "trims": targets.trims,
+            "marquees": marquees,
+            "marqueeBlocks": marquee_blocks,
             "phonePanel": app.ui.phone_panel,
             "phonePreview": !app.ui.phone_preview_hidden,
             "scrollbars": app.auto.scroll_tracks,

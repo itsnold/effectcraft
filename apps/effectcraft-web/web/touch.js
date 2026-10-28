@@ -128,6 +128,7 @@ export class TouchGesture {
 // All rects come from the completed egui frame, in points. Convert via the actual UI
 // scale and canvas origin, not screen resolution (Android density and UI Scale differ).
 export function touchTarget(p, layout, bounds, density = 1, mode = "auto") {
+  if (layout?.overlay && ["box", "trim"].includes(mode)) mode = "auto";
   const scale = (layout?.pixelsPerPoint || density) / density;
   const point = { x: (p.x - bounds.left) / scale, y: (p.y - bounds.top) / scale };
   const contains = ([x, y, w, h]) => w > 0 && h > 0 &&
@@ -137,6 +138,30 @@ export function touchTarget(p, layout, bounds, density = 1, mode = "auto") {
   if (mode === "auto" && (layout?.scrubs || []).some(contains)) {
     return { policy: "scrub", offset: { x: 0, y: 0 } };
   }
+  // Thin desktop trim zones straddle each end of the bar. Snap a near miss to the real
+  // zone, never to the body or an offscreen edge. Choose the nearest edge on short clips.
+  if (!layout?.overlay && ["auto", "drag", "trim"].includes(mode)) {
+    let nearest = null;
+    for (const target of layout?.trims || []) {
+      const { rect, clip } = target;
+      if (rect?.length !== 4 || clip?.length !== 4 || !rect.every(Number.isFinite) || !clip.every(Number.isFinite)) continue;
+      const [x, y, w, h] = rect;
+      if (w <= 0 || h <= 0 || !contains(clip)) continue;
+      const margin = Math.max(0, (32 / scale - w) / 2);
+      if (!contains([x - margin, y, w + 2 * margin, h])) continue;
+      const distance = Math.abs(point.x - x - w / 2);
+      if (!nearest || distance < nearest.distance) nearest = { rect, distance };
+    }
+    if (nearest) {
+      const [x, y, w, h] = nearest.rect;
+      return { policy: mode === "auto" ? "hold-drag" : "drag", offset: {
+        x: bounds.left + (x + w / 2) * scale - p.x,
+        y: bounds.top + (y + h / 2) * scale - p.y,
+      } };
+    }
+  }
+  const marquee = !layout?.overlay && (layout?.marquees || []).some(contains) &&
+    ![...(layout?.marqueeBlocks || []), ...(layout?.holdDrags || []), ...(layout?.scrubs || [])].some(contains);
   if (!layout?.overlay) {
     // Ruler/playhead, time display and time-zoom controls are deliberate edits, unlike
     // swiping layer bars or keys. Prefer exact hits before expanding neighbouring tracks.
@@ -154,9 +179,14 @@ export function touchTarget(p, layout, bounds, density = 1, mode = "auto") {
         : { x: 0, y: bounds.top + (y + h / 2) * scale - p.y } };
     }
   }
+  // Explicit modes are safe on occupied rows: a box must start in empty space, and
+  // Trim must start at an edge, not silently move a clip or retime a key underneath.
+  if (!layout?.overlay && ["box", "trim"].includes(mode)) {
+    return { policy: mode === "box" && marquee ? "drag" : "scroll", offset: { x: 0, y: 0 } };
+  }
   const editing = !layout?.overlay && [...(layout?.viewers || []), ...(layout?.drags || [])].some((rect) => contains(rect));
   const scrolling = !layout?.overlay && (layout?.scrolls || []).some((rect) => contains(rect));
-  if (mode === "auto" && !layout?.overlay && (layout?.holdDrags || []).some(contains)) {
+  if (mode === "auto" && !layout?.overlay && ((layout?.holdDrags || []).some(contains) || marquee)) {
     return { policy: "hold-drag", offset: { x: 0, y: 0 } };
   }
   return { policy: mode === "auto" ? (editing ? "drag" : scrolling ? "scroll" : "auto") : mode, offset: { x: 0, y: 0 } };
@@ -261,12 +291,26 @@ export function installTouchBar(canvas, { modifiers, controls }) {
     return b;
   };
   const invoke = (id, params = {}) => window.effectcraft.request("ui.menu.invoke", { id, params });
+  const updateModes = () => {
+    mode.textContent = controls.mode[0].toUpperCase() + controls.mode.slice(1);
+    mode.setAttribute("aria-label", `Touch mode: ${mode.textContent}. Tap to switch to Scroll or Drag`);
+    box.setAttribute("aria-pressed", String(controls.mode === "box"));
+    trim.setAttribute("aria-pressed", String(controls.mode === "trim"));
+  };
   const mode = button("Auto", "Touch mode: Auto. Tap to switch to Scroll or Drag", () => {
     const modes = ["auto", "scroll", "drag"];
     controls.mode = modes[(modes.indexOf(controls.mode) + 1) % modes.length];
-    mode.textContent = controls.mode[0].toUpperCase() + controls.mode.slice(1);
-    mode.setAttribute("aria-label", `Touch mode: ${mode.textContent}. Tap to switch to Scroll or Drag`);
+    updateModes();
   });
+  const box = button("Box select", "Toggle timeline box selection: drag from empty space", () => {
+    controls.mode = controls.mode === "box" ? "auto" : "box";
+    updateModes();
+  });
+  const trim = button("Trim", "Toggle clip trimming: drag the left or right edge", () => {
+    controls.mode = controls.mode === "trim" ? "auto" : "trim";
+    updateModes();
+  });
+  updateModes();
   button("UI", "Adjust editor UI scale", () => showScalePicker());
   button("Time −", "Zoom timeline out", () => invoke("timeline.zoomOut"));
   button("Time +", "Zoom timeline in", () => invoke("timeline.zoomIn"));
@@ -299,7 +343,10 @@ export function installTouchBar(canvas, { modifiers, controls }) {
     "Pinch to zoom in first if the whole timeline already fits. Swipe over the time bars to move through time. " +
     "Drag the time ruler / playhead to scrub; drag the bottom time-zoom slider or top navigator handles to change the time scale. " +
     "Time − / Time + / Fit time change timeline zoom; Frame ‹ / Frame › place the playhead one frame at a time. " +
-    "Hold a layer bar, key or layer name until the vibration, then drag to move/trim, retime or reorder it. " +
+     "Hold a layer bar, key or layer name until the vibration, then drag to move/trim, retime or reorder it. " +
+    "For a selection rectangle, tap Box select, then drag from empty timeline space: the left outline selects layers, the time area selects keys. Shift adds to selection. " +
+    "Tap Trim, then drag near a clip's left/right edge to shorten or extend it without a hold. Tap the active Box select or Trim button again to return to Auto. " +
+    "In Auto, hold empty timeline space to draw a selection box; hold near a clip edge to trim. Keep the same finger down while moving. " +
     "Release a hold without moving for options. Swipe left/right directly on a number to adjust it; swipe vertically to scroll. " +
     "Drag in the viewer to edit. Drag mode also allows immediate edits without holding; switch back to Auto to navigate. " +
     "Use Scroll to force one-finger scrolling elsewhere. " +

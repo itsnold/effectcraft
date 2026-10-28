@@ -17,7 +17,8 @@ const html = `<!doctype html><meta name="viewport" content="width=device-width,i
 import { installTouch, installTouchBar, dismissTouchOverlay } from '/touch.js';
 window.events=[];window.calls=[];window.scale=100;
  window.layout={pixelsPerPoint:devicePixelRatio,viewers:[[200,0,400,500]],scrolls:[[0,0,200,500]],
-  holdDrags:[[20,160,160,40]],scrubs:[[20,220,100,24]],
+   holdDrags:[[20,160,160,40]],scrubs:[[20,220,100,24]],marquees:[[0,260,200,200]],
+   marqueeBlocks:[[20,160,160,40]],trims:[{rect:[16,160,9,40],clip:[0,0,200,500]}],
  controls:[[0,20,200,34]],controlTracks:[[20,480,160,4]],scrollbars:[[620,40,4,400]],overlay:false};
 window.effectcraft={dismissTouchOverlay,touchLayout:()=>layout,request:async(...a)=>{
  calls.push(a);if(a[0]==='ui.set'&&'phonePanel' in a[1])layout.phonePanel=a[1].phonePanel;
@@ -89,7 +90,39 @@ try {
   assert(events.some(e=>e.type==='mousemove'&&e.buttons===1));
   assert(!events.some(e=>e.button===2||e.type==='wheel'),"held editing is neither a context menu nor a scroll");
   await touch("touchStart",[{x:80,y:180}]);await pause(600);await touch("touchEnd",[]);
-  events=await js("events.splice(0)");assert(events.some(e=>e.type==='pointerdown'&&e.button===2),"release a stationary hold for options");
+   events=await js("events.splice(0)");assert(events.some(e=>e.type==='pointerdown'&&e.button===2),"release a stationary hold for options");
+   // A near miss just outside the narrow native trim zone must arm, not right-click.
+   await touch("touchStart",[{x:10,y:180}]);await pause(600);
+   assert(!(await js("events.splice(0)")).some(e=>e.type==='pointerdown'));
+   await touch("touchMove",[{x:50,y:180}]);await pause(30);await touch("touchEnd",[]);
+   events=await js("events.splice(0)");
+   assert(events.some(e=>e.type==='pointerdown'&&e.button===0&&e.x===20.5));
+   assert(!events.some(e=>e.button===2||e.type==='wheel'));
+   await js("document.querySelector('#touch-bar button[aria-label=\"Toggle clip trimming: drag the left or right edge\"]').click()");
+   await pause(30);assert.equal(await js("adapter.controls.mode"),'trim');
+   await swipe({x:10,y:180},{x:50,y:180});events=await js("events.splice(0)");
+   assert(events.some(e=>e.type==='pointerdown'&&e.button===0&&e.x===20.5),'Trim starts at the true edge without holding');
+   assert(!events.some(e=>e.button===2||e.type==='wheel'));
+   await js("document.querySelector('#touch-bar button[aria-label=\"Toggle clip trimming: drag the left or right edge\"]').click()");
+   await pause(30);assert.equal(await js("adapter.controls.mode"),'auto');
+   // Empty timeline space supports a held marquee in Auto, or immediate Box select.
+   await touch("touchStart",[{x:100,y:330}]);await pause(600);
+   assert(!(await js("events.splice(0)")).some(e=>e.type==='pointerdown'));
+   await touch("touchMove",[{x:150,y:290}]);await pause(30);await touch("touchEnd",[]);
+   events=await js("events.splice(0)");
+   assert(events.some(e=>e.type==='pointerdown'&&e.button===0));
+   assert(!events.some(e=>e.button===2||e.type==='wheel'));
+   await js("document.querySelector('#touch-bar button[aria-label=\"Toggle timeline box selection: drag from empty space\"]').click()");
+   await pause(30);assert.equal(await js("adapter.controls.mode"),'box');
+   assert.equal(await js("document.querySelector('#touch-bar button[aria-label=\"Toggle timeline box selection: drag from empty space\"]').getAttribute('aria-pressed')"),'true');
+   await swipe({x:100,y:330},{x:150,y:290});events=await js("events.splice(0)");
+   assert(events.some(e=>e.type==='pointerdown'&&e.button===0));
+   assert(!events.some(e=>e.button===2||e.type==='wheel'));
+   await swipe({x:80,y:180},{x:140,y:180});events=await js("events.splice(0)");
+   assert(events.some(e=>e.type==='wheel'),'Box select cannot move a bar underneath the finger');
+   assert(!events.some(e=>e.type==='pointerdown'));
+   await js("document.querySelector('#touch-bar button[aria-label=\"Toggle timeline box selection: drag from empty space\"]').click()");
+   await pause(30);assert.equal(await js("adapter.controls.mode"),'auto');
   await swipe({x:40,y:230},{x:140,y:230});events=await js("events.splice(0)");
   assert(events.some(e=>e.type==='mousemove'&&e.buttons===1),"horizontal scrub works inside a scrollable panel");
   assert(!events.some(e=>e.type==='wheel'));

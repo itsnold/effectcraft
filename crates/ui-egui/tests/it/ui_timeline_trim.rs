@@ -120,6 +120,27 @@ fn dragging_bar_ends_trims_in_and_out() {
     assert!((i - 3.0).abs() < 1e-6 && (o - 8.0).abs() < 1.5 / 30.0 && s.abs() < 1e-6, "out extended to ~8 s, not slipped: in {i} out {o} start {s}");
 }
 
+/// Finger-target expansion must be based on the clipped native edge, not the whole layer bar.
+#[test]
+fn touch_trim_targets_are_real_visible_edges_and_exclude_locked_layers() {
+    let (mut h, solid, pre) = harness();
+    for layer in [solid, pre] {
+        for end in ["in", "out"] {
+            let edge = h.state().auto.find(&format!("timeline.layer.{layer}.bar.{end}")).unwrap().rect;
+            let targets = effectcraft_ui_egui::touch_targets::current(&h.ctx);
+            assert!(targets.trims.iter().any(|t| t.rect == edge), "touch uses the actual {end} edge, including its outside portion");
+        }
+    }
+    h.state_mut().session.execute("layer.setSwitch", json!({"layers": [solid, pre], "switch": "locked", "value": true})).unwrap();
+    h.run_steps(3);
+    assert!(effectcraft_ui_egui::touch_targets::current(&h.ctx).trims.is_empty(), "locked layers cannot advertise a trim handle");
+    h.state_mut().session.execute("layer.setSwitch", json!({"layers": [solid, pre], "switch": "locked", "value": false})).unwrap();
+    h.state_mut().ui.timeline.start = 15.0;
+    h.state_mut().ui.timeline.pps = Some(1000.0);
+    h.run_steps(3);
+    assert!(effectcraft_ui_egui::touch_targets::current(&h.ctx).trims.is_empty(), "offscreen ends do not become false handles at the viewport edge");
+}
+
 /// With Frames and Frame Count Start at 1, In moves to 00061 but the Duration column still counts
 /// the layer's 120 frames (#1807).
 #[test]

@@ -228,6 +228,95 @@ async function checkTouchEditing() {
   await revealEditingProperty(layer, 'transform/opacity');
   return {layerMove:true,layerReorder:true,keyRetime:true,positionScrub:true,undo:true};
 }
+async function checkBoxAndTrim() {
+  const original = await js('effectcraft.inspect()');
+  const phone = !!original.ui.phone_panel;
+  const label = phone ? 'phone' : 'tablet';
+  await js(`effectcraft.execute('comp.new',{name:'Touch box and trim ${label}',width:64,height:36,duration:6,frameRate:30})`);
+  const layers = [];
+  for (let i = 0; i < 3; i++) layers.push((await js(`effectcraft.execute('layer.newNull',{name:'Touch target ${i}'})`)).layer);
+  const layer = layers[0]; // Bottom row: empty space below its keys is available in both layouts.
+  await js(`effectcraft.execute('layer.select',{layers:[${layer}]})`);
+  await js(`effectcraft.execute('layer.timing',{layers:[${layer}],in:1.5,out:3.5})`);
+  for (const time of [2, 3]) await js(`effectcraft.execute('prop.addKey',{layer:${layer},path:'transform/opacity',time:${time},value:50})`);
+  if (phone) await js("effectcraft.request('ui.set',{phonePanel:'Timeline'})");
+  else if ((await js('effectcraft.inspect()')).ui.maximized !== 'Timeline')
+    await js("effectcraft.request('ui.menu.invoke',{id:'window.maximizePanel',params:{panel:'Timeline'}})");
+  await revealEditingProperty(layer, 'transform/opacity');
+  const element = async id => {
+    const e = (await js(`effectcraft.request('ui.elements',{prefix:${JSON.stringify(id)}})`)).find(e => e.id === id);
+    assert(e, `${id} is visible`); return e.rect;
+  };
+  const ruler = await element('timeline.ruler');
+  const pps = (ruler[2] - 40) / 6;
+  await js(`effectcraft.request('ui.set',{timeline:{pps:${pps},start:0}})`);
+  await pause(200);
+  const bounds = await js("(()=>{const r=document.querySelector('canvas').getBoundingClientRect();return {x:r.x,y:r.y}})()");
+  const scale = await js('effectcraft.inspect().then(i=>i.pixelsPerPoint/devicePixelRatio)');
+  const point = (r, fx=.5, fy=.5) => ({x:bounds.x+(r[0]+r[2]*fx)*scale,y:bounds.y+(r[1]+r[3]*fy)*scale});
+  const button = async title => { await js(`document.querySelector('#touch-bar button[aria-label=${JSON.stringify(title)}]').click()`); await pause(50); };
+  const trimTitle = 'Toggle clip trimming: drag the left or right edge';
+  const boxTitle = 'Toggle timeline box selection: drag from empty space';
+  const drag = async (a,b,hold=false,screenshot=null) => {
+    await touch('touchStart',[a]); if (hold) await pause(650);
+    assert(!(await js('effectcraft.touchLayout().overlay')), 'holding an edge or empty space must not open a context menu');
+    for (let i=1;i<=10;i++) {
+      await touch('touchMove',[{x:a.x+(b.x-a.x)*i/10,y:a.y+(b.y-a.y)*i/10}]); await pause(35);
+    }
+    if (screenshot) await writeFile(join(out,screenshot),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    await touch('touchEnd',[]); await pause(200);
+    assert(!(await js('effectcraft.touchLayout().overlay')), 'editing must not finish with an accidental menu');
+  };
+  const state = () => js('effectcraft.execute("comp.info")');
+  const before = await state();
+  // Both directions at both ends, including a touch just outside the actual 9-point zone.
+  // Each trim is one undo step and cannot move the layer or change its opposite endpoint.
+  for (const [end, direction, hold] of [['in',1,true],['out',-1,true],['in',-1,false],['out',1,false]]) {
+    if (!hold) await button(trimTitle);
+    const a = point(await element(`timeline.layer.${layer}.bar.${end}`));
+    a.x += end === 'in' ? -8 : 8;
+    await drag(a,{x:a.x+direction*Math.max(20,pps*.75*scale),y:a.y},hold);
+    const old = before.layers.find(l=>l.id===layer), changed = (await state()).layers.find(l=>l.id===layer);
+    assert((changed[end]-old[end])*direction>0, `${label}: ${end} edge really trims ${direction>0?'right':'left'}`);
+    assert.equal(changed.start,old.start,'trimming must not move the layer');
+    assert.equal(changed[end==='in'?'out':'in'],old[end==='in'?'out':'in'],'opposite edge stays fixed');
+    await js("effectcraft.execute('edit.undo')"); assert.deepEqual(await state(),before,'one undo restores the entire trim');
+    if (!hold) await button(trimTitle); // Back to Auto.
+  }
+  // Draw the actual selection rectangle around two visible keys, in both hold and button modes.
+  const prop = await js(`effectcraft.execute('prop.get',{layer:${layer},path:'transform/opacity'})`);
+  for (const hold of [true,false]) {
+    await js("effectcraft.execute('layer.select',{layers:[]})"); await pause(100);
+    const keys = await js(`effectcraft.request('ui.elements',{prefix:'timeline.key.${prop.uid}.'})`);
+    assert.equal(keys.length,2);
+    const points = keys.map(e=>point(e.rect)).sort((a,b)=>a.x-b.x);
+    const a = {x:points[1].x+18,y:points[1].y+30};
+    const b = {x:points[0].x-18,y:points[0].y-12};
+    if (!hold) await button(boxTitle);
+    await drag(a,b,hold,hold?null:`${label}-key-box.png`);
+    assert.equal((await js('effectcraft.inspect()')).selectedKeys,2,`${label}: box selects both keyframes`);
+    assert.deepEqual((await js(`effectcraft.execute('prop.get',{layer:${layer},path:'transform/opacity'})`)).keys,prop.keys,'selection cannot retime keys');
+    if (!hold) await button(boxTitle);
+  }
+  // In the left outline a box selects layers, not keys or a reorder drag.
+  const outline = await element('timeline.layerMarquee');
+  const allRows = await js("effectcraft.request('ui.elements',{prefix:'timeline.layer.'})");
+  const rows = allRows.filter(e=>e.id.endsWith('.row'));
+  const propertyRects = await js(`effectcraft.request('ui.elements',{prefix:'timeline.prop.${prop.uid}.'})`);
+  const bottom = Math.max(...rows.map(e=>e.rect[1]+e.rect[3]),...propertyRects.map(e=>e.rect[1]+e.rect[3]));
+  const a = point([outline[0],bottom+20,outline[2],1],.8);
+  const b = point([outline[0],Math.min(...rows.map(e=>e.rect[1]))+2,outline[2],1],.2);
+  await button(boxTitle); await drag(a,b,false,`${label}-layer-box.png`);
+  assert.deepEqual((await js('effectcraft.inspect()')).selectedLayers.sort((a,b)=>a-b),layers.slice().sort((a,b)=>a-b),'outline box selects layers');
+  assert.deepEqual(await state(),before,'selection leaves timing and stacking order unchanged');
+  await button(boxTitle);
+  await js(`effectcraft.execute('comp.open',{comp:${original.activeComp}})`);
+  if (phone) await js("effectcraft.request('ui.set',{phonePanel:'Timeline'})");
+  await js(`effectcraft.request('ui.set',{timeline:{pps:${original.ui.timeline.pps},start:${original.ui.timeline.start}}})`);
+  await js("effectcraft.execute('layer.select',{layers:['Sideways gesture guard']})");
+  await revealEditingProperty((await js("effectcraft.execute('layer.tree',{depth:0})")).id,'transform/opacity');
+  return {heldTrim:true,immediateTrim:true,bothEnds:true,undo:true,heldBox:true,keyBox:true,layerBox:true};
+}
 const deadline = setTimeout(() => { console.error("Android smoke test exceeded 5 minutes"); chrome.kill(); process.exit(1); }, 300000);
 try {
   let page;
@@ -321,6 +410,7 @@ try {
   report.sidewaysOverKey = await sidewaysOverKey();
   report.tabletTimelineNavigation = await checkTimelineNavigation();
   report.tabletTouchEditing = await checkTouchEditing();
+  report.tabletBoxAndTrim = await checkBoxAndTrim();
   // Make the timeline genuinely overflow, then swipe on a layer name. No synthetic
   // UI scroll command: only CDP finger input may change the scroll offset.
   await js("(async()=>{for(let i=0;i<45;i++)await effectcraft.execute('layer.newNull',{name:'Touch scroll '+i})})()");
@@ -378,6 +468,7 @@ try {
   report.phoneSidewaysOverKey = await sidewaysOverKey();
   report.phoneTimelineNavigation = await checkTimelineNavigation();
   report.phoneTouchEditing = await checkTouchEditing();
+  report.phoneBoxAndTrim = await checkBoxAndTrim();
   const preview = (await js("effectcraft.request('ui.elements',{prefix:'phone.preview'})"))[0];
   const phoneTimeline = (await js("effectcraft.request('ui.elements',{prefix:'panel.Timeline'})"))[0];
   assert(preview && preview.rect[1]+preview.rect[3]<phoneTimeline.rect[1],"live preview stays visible above the phone timeline");

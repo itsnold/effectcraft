@@ -4448,10 +4448,6 @@ const GEORGIAN: &[(&str, &str)] = &[
     ("(missing)", "(აკლია)"),
     ("360 View Orientation", "360° ხედის ორიენტაცია"),
     ("3:2 Pulldown: {}", "3:2 Pulldown: {}"),
-    (
-        "A clean-room, open-source compositor for motion graphics and visual effects: native on macOS, Windows and Linux, and in the browser. Part of the ArtCraft family of creative apps.",
-        "სუფთა ოთახის მეთოდით შექმნილი, ღია კოდის კომპოზიტორი მოძრავი გრაფიკისა და ვიზუალური ეფექტებისთვის: ნატიურად მუშაობს macOS-ზე, Windows-სა და Linux-ზე, ასევე ბრაუზერში. ArtCraft-ის შემოქმედებითი აპების ოჯახის ნაწილი.",
-    ),
     ("About EffectCraft", "EffectCraft-ის შესახებ"),
     ("About...", "პროგრამის შესახებ..."),
     ("Active", "აქტიური"),

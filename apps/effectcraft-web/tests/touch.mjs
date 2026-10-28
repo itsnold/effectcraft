@@ -201,6 +201,43 @@ assert.equal(zoomTarget.offset.x, 0);
 gesture.down(1, p(235, 75), "drag"); gesture.move(1, p(300, 75)); gesture.up(1, p(300, 75));
 assert(types().some(([type]) => type === "down"), "scrubbing emits a real press/drag rather than a wheel");
 
+// Selection boxes and enlarged clip edges use the completed UI geometry at any density.
+const editingBounds = { left: 12, top: 68 };
+const editingScale = 1.5;
+const css = (x, y) => p(editingBounds.left + x * editingScale, editingBounds.top + y * editingScale);
+const clip = [100, 40, 300, 240];
+const edgeLayout = { pixelsPerPoint: 3, scrolls: [clip], marquees: [clip],
+  marqueeBlocks: [[180, 80, 120, 30]], holdDrags: [[180, 80, 120, 30]],
+  trims: [{ rect: [176, 80, 9, 30], clip }, { rect: [295, 80, 9, 30], clip }] };
+for (const [x, center] of [[170, 180.5], [190, 180.5], [290, 299.5], [310, 299.5]]) {
+  const edge = touchTarget(css(x, 95), edgeLayout, editingBounds, 2);
+  assert.equal(edge.policy, 'hold-drag', 'near either side of an edge arms trim instead of a context menu');
+  assert(Math.abs(css(x, 95).x + edge.offset.x - css(center, 95).x) < 1e-6, 'snap to the real trim zone, not the bar body');
+  assert.equal(touchTarget(css(x, 95), edgeLayout, editingBounds, 2, 'trim').policy, 'drag', 'Trim edits without a hold');
+  assert.equal(touchTarget(css(x, 95), edgeLayout, editingBounds, 2, 'scroll').policy, 'scroll');
+  assert.equal(touchTarget(css(x, 95), { ...edgeLayout, overlay: true }, editingBounds, 2, 'trim').policy, 'auto', 'menus block edges beneath them');
+}
+assert.equal(touchTarget(css(240, 95), edgeLayout, editingBounds, 2, 'trim').policy, 'scroll', 'Trim never moves a bar body');
+assert.equal(touchTarget(css(240, 95), edgeLayout, editingBounds, 2, 'box').policy, 'scroll', 'Box select never grabs a bar');
+const empty = css(240, 150);
+assert.equal(touchTarget(empty, edgeLayout, editingBounds, 2).policy, 'hold-drag', 'hold on empty space arms a selection rectangle');
+assert.equal(touchTarget(empty, edgeLayout, editingBounds, 2, 'box').policy, 'drag', 'Box select draws immediately');
+assert.equal(touchTarget(empty, { ...edgeLayout, overlay: true }, editingBounds, 2, 'box').policy, 'auto');
+for (const [policy, wait, expected] of [['hold-drag', true, 'down'], ['hold-drag', false, 'wheel'], ['drag', false, 'down']]) {
+  gesture.down(1, empty, policy);
+  if (wait) { timer(); assert.deepEqual(types(), [['haptic', undefined]], 'holding empty timeline space does not open a menu'); }
+  gesture.move(1, p(empty.x + 40, empty.y - 30)); gesture.up(1, p(empty.x + 40, empty.y - 30));
+  const output = events.splice(0);
+  assert(output.some(e => e.type === expected));
+  assert(!output.some(e => e.button === 2), 'selection drag cannot become a right click');
+}
+const shortEdges = { ...edgeLayout, trims: [{ rect: [202, 80, 6, 30], clip }, { rect: [196, 80, 6, 30], clip }] };
+assert.equal(touchTarget(css(197, 95), shortEdges, editingBounds, 2).offset.x, 3, 'overlapping edge targets choose the nearest, not the first');
+const boundary = { ...edgeLayout, trims: [{ rect: [100, 80, 5, 30], clip }] };
+assert.notEqual(touchTarget(css(96, 95), boundary, editingBounds, 2).policy, 'hold-drag', 'expanded edge cannot reach another panel');
+assert.equal(touchTarget(css(170, 95), { ...edgeLayout, trims: [] }, editingBounds, 2, 'trim').policy, 'scroll', 'missing/locked edges do not trim');
+console.log('Timeline touch: selection boxes, edge near misses, nearest short-clip edge, modes, overlays and safe swiping passed');
+
 // Fresh installs, one-time upgrade from the forced scale, custom settings and failed writes.
 function preferences(initial = {}, scale = 125) {
   const stored = new Map(Object.entries(initial)), writes = [];

@@ -7,12 +7,12 @@ services; the editing engine and codecs are unchanged Rust.
 
 ## Requirements and installation
 
-- Android port **0.1.7-alpha** includes upstream **EffectCraft v0.17.0**
+- Android port **0.1.8-alpha** includes upstream **EffectCraft v0.17.0**
   (`362474a843ddb67555d4c2d19ad6a590388aad0e`). This update brings preview/cache improvements, effect and text
   rendering fixes, safer file readers, layer source replacement, Cryptomatte picking and
   upstream UI/localization improvements.
   The phone workspace, touch/timeline controls, 4096-pixel WebGL fallback, package ID and
-  project storage are preserved; the APK version code increases to 8.
+  project storage are preserved; the APK version code increases to 9.
 - Android 10 (API 29) or newer, OpenGL ES 3, and a recent **Android System WebView** (Chromium 120+
   recommended; update it through the Play Store). WebAssembly and WebGL2 must be enabled.
 - Phones get a compact, single-panel workspace in portrait and landscape; tablets keep the docked
@@ -33,6 +33,20 @@ services; the editing engine and codecs are unchanged Rust.
   the app's private session/media storage. Never rely on it as your only copy.
 
 ## Touch controls
+
+Version **0.1.8-alpha** adds dedicated **Box select** and **Trim** buttons beside Auto:
+
+- **Box select:** tap the button, then drag from empty timeline space to draw a selection
+  rectangle. Start in the left layer-name outline to select layers; start in the right time
+  area to select keyframes. Enable **Shift** to add to the selection. Starting on an occupied
+  bar/key/name scrolls rather than moving it accidentally.
+- **Trim:** tap the button, then drag near a clip's left or right edge to shorten or extend it,
+  **without holding first**. The edge has a 32 CSS-pixel-wide touch target, snapped to the real
+  trim zone. Touching the middle of the clip still scrolls, never moves it in this mode.
+- Tap the active **Box select** or **Trim** button again to return to **Auto**. In Auto,
+  hold empty timeline space or a clip edge for 500 ms, then move **the same finger without
+  lifting it** to box-select or trim. A quick swipe still scrolls; releasing a stationary
+  hold keeps context-menu behavior where that target provides a menu.
 
 Version **0.1.6-alpha** adds **hold-to-drag editing in Auto**. Hold a layer bar, keyframe or
 layer name for 500 ms (until the vibration), then move that same finger: bars move/trim in
@@ -60,6 +74,9 @@ already fits, pinch to zoom in first; there is no offscreen time to scroll to at
 | Auto mode: vertical swipe in panels / menus | Scroll without selecting or editing the row underneath |
 | Auto mode: sideways swipe in timeline / media / effects lists | Scroll, without grabbing layers/keys; timeline names scroll columns on tablets |
 | Hold a layer bar / key / layer name, then drag | Move/trim / retime / reorder, without opening a menu first |
+| Box select + drag from empty timeline space | Rectangle-select layers in the left outline or keys in the right time area |
+| Trim + drag near either clip edge | Shorten/extend immediately; no hold or right click |
+| Auto: hold empty timeline space, then drag | Draw a selection rectangle without switching modes |
 | Slide left/right on a numeric value | Decrease/increase it; vertical swipes still scroll |
 | Auto mode: drag in viewer / horizontal drag in other panels | Move or adjust values |
 | Auto mode: drag timeline ruler / playhead head | Scrub current time, snapped to frames |
@@ -171,8 +188,10 @@ the 0.17 dev-profile gate), Node gesture/browser-host tests, JVM export tests, t
 and APK assembly. A headless browser test checks the Android-mode UI. It uploads the testing APK
 and checksum only after that job's checks pass. The separate Rust gate can expose existing upstream
 failures; inspect **both** jobs before distributing an artifact.
-The APK check also verifies package ID, version **0.1.7-alpha** / code **8**, launcher name and icon.
+The APK check also verifies package ID, version **0.1.8-alpha** / code **9**, launcher name and icon.
 The upstream CI workflow and release-workflow permission changes are included from v0.17.0.
+Touch regressions include real-finger box selection and both-end trim/extend with one-step undo,
+on phone and tablet layouts, repeated under the synthetic 4096-pixel WebGL limit.
 
 The cache regressions cover UUID-based temporary names and WebViews without `randomUUID` or
 file moves, including worker writes and failed moves. Service-worker regressions check that
