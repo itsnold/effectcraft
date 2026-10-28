@@ -153,10 +153,14 @@ async function revealEditingProperty(layer, path) {
   const kind = path.split('/').at(-1);
   assert(['opacity','position'].includes(kind), 'touch fixture uses a supported reveal shortcut');
   const timeline = (await js("effectcraft.inspect()")).ui.timeline;
-  const shown = timeline.layer_reveal[String(layer)] || timeline.reveal;
-  if (shown.length!==1 || shown[0]!==kind) {
-    // Avoid interpreting a repeated shortcut as its double-press variant (TT/PP).
-    await pause(650);
+  // The global reveal records the last shortcut, NOT what a newly created layer shows.
+  // If that shortcut is already active globally, the first invocation toggles it off;
+  // the second applies it to this layer. Inspect its own reveal rather than guessing.
+  for (let attempt=0;attempt<2;attempt++) {
+    const current = (await js('effectcraft.inspect()')).ui.timeline;
+    const shown = current.layer_reveal[String(layer)] || [];
+    if (shown.length===1 && shown[0]===kind) break;
+    await pause(650); // Do not interpret a repeated shortcut as TT/PP.
     await js(`effectcraft.request('ui.menu.invoke',${JSON.stringify({id:`timeline.reveal.${kind}`})})`);
   }
   if (!timeline.open_layers.includes(layer)) {
