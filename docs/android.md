@@ -214,6 +214,8 @@ the dev-profile gate), Node gesture/browser-host tests, JVM export tests, the WA
 and APK assembly. A headless browser test checks the Android-mode UI. It uploads the testing APK
 and checksum only after that job's checks pass. The separate Rust gate can expose existing upstream
 failures; inspect **both** jobs before distributing an artifact.
+The Rust gate checks out the upstream-pinned canonical font fixtures for Japanese settings and IME
+tests; these external test fixtures are not added to the APK or this repository.
 The APK check also verifies package ID, version **0.2.1-alpha** / code **12**, launcher name and icon.
 The upstream release is merged in full, including its CI changes; Android publishing stays separate.
 Touch regressions include real-finger box selection and both-end trim/extend with one-step undo,

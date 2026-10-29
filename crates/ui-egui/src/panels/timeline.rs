@@ -3331,15 +3331,8 @@ fn layer_bar_drag(app: &mut EffectcraftApp, g: &mut Rw, rc: &RowCtx<'_>, bars: &
                 && app.ui.timeline.pps.is_some()
                 && let Some(ptr) = resp.interact_pointer_pos()
             {
-                let shift = edit_edge_scroll(
-                    app.ui.timeline.start,
-                    g.tl.comp.duration.seconds(),
-                    pps,
-                    g.tl.graph_x0,
-                    g.tl.graph_x1,
-                    ptr.x,
-                    ctx.input(|i| i.stable_dt),
-                );
+                let shift =
+                    edit_edge_scroll(app.ui.timeline.start, g.tl.comp.duration.seconds(), pps, g.tl.graph_x0, g.tl.graph_x1, ptr.x, ctx.input(|i| i.stable_dt));
                 if shift != 0.0 {
                     app.ui.timeline.start += shift;
                     acc += (shift * pps) as f32;
@@ -4702,7 +4695,10 @@ fn footer_zoom(app: &mut EffectcraftApp, ui: &mut egui::Ui, g: &Rw, footer: Rect
     let comp = g.tl.comp.clone();
     let p = g.tl.p.clone();
     let zoom_margin = if phone { 50.0_f32.min((g.tl.graph_x1 - graph_x0).max(0.0) * 0.25) } else { 30.0 };
-    let zs = Rect::from_min_max(pos2(graph_x0 + zoom_margin, footer.center().y - 2.0), pos2((graph_x0 + 230.0).min(rect.max.x - zoom_margin), footer.center().y + 2.0));
+    let zs = Rect::from_min_max(
+        pos2(graph_x0 + zoom_margin, footer.center().y - 2.0),
+        pos2((graph_x0 + 230.0).min(rect.max.x - zoom_margin), footer.center().y + 2.0),
+    );
     // Zoom out / zoom in buttons either side of the slider: the `-` / `=` steps. Everything here
     // zooms around the CTI and sets the one time zoom the layer bars and the Graph Editor share.
     let cti = time.seconds();
