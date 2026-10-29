@@ -30,7 +30,7 @@ Some specialist panels remain desktop-oriented. Keep external copies of projects
 
 ## Maintainer acceptance — complete before publishing this draft
 
-Device checks are **not yet recorded**. Complete [the release checklist](docs/android-release.md),
+Device checks are **not yet recorded**. Complete [the release checklist](https://github.com/itsnold/effectcraft/blob/android/docs/android-release.md),
 replace this section with tested device/Android/WebView versions and workflow results, and list
 remaining device-specific issues. A green CI run alone is not approval to publish.
 

@@ -316,7 +316,7 @@ export function installTouchBar(canvas, { modifiers, controls }) {
     #touch-bar [hidden] { display:none !important; }
     #touch-bar button[data-advanced=true] { display:none; }
     #touch-error label { display:block; flex-basis:100%; color:var(--mobile-muted); font-size:12px; font-weight:600; }
-    @media(max-width:599px) { #touch-error { inset:auto 0 0; margin:0; width:100%; max-height:calc(100dvh - 20px);
+    @media(max-width:599px) { #touch-error { inset:auto 0 0; margin:0; width:100%; max-width:none; max-height:calc(100dvh - 20px);
       border-radius:22px 22px 0 0; padding:20px 16px max(20px,env(safe-area-inset-bottom)); }
       #touch-error header { top:-20px; } }
     @media(prefers-reduced-motion:reduce) { #touch-bar button, #phone-toolbar button, #phone-nav button, #touch-error button { transition:none; } }
