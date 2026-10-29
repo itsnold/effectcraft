@@ -27,7 +27,7 @@ window.effectcraft={dismissTouchOverlay,touchLayout:()=>layout,request:async(...
  execute:async(id,p)=>id==='prefs.get'?scale:(scale=p.values['appearance.uiScale']),flush:async()=>{}};
 const canvas=document.querySelector('canvas');
 window.adapter=installTouch(canvas);installTouchBar(canvas,adapter);
-for(const type of ['pointerdown','pointerup','mousemove','wheel','mouseleave'])
+ for(const type of ['pointerdown','pointerup','mousemove','wheel','mouseleave','click'])
  document.addEventListener(type,e=>events.push({type,pointerType:e.pointerType,x:e.clientX,y:e.clientY,
  buttons:e.buttons,button:e.button,dx:e.deltaX,dy:e.deltaY,ctrl:e.ctrlKey,shift:e.shiftKey,alt:e.altKey,trusted:e.isTrusted}));
 window.ready=true;
@@ -169,11 +169,18 @@ try {
    assert.equal(await js("!!document.querySelector('#touch-bar button[aria-label=\"Open editing tools\"]')"),false);
    const callsBeforeSwipe = await js("calls.length");
    await swipe({x:650,y:575},{x:100,y:575});
+   // A fling keeps scrolling after touchEnd; a tap during that motion only stops it.
+   await pause(800);
    assert(await js("document.querySelector('#touch-bar').scrollLeft>100"));
    assert.equal(await js("calls.length"),callsBeforeSwipe,"scrolling shortcut bar cannot trigger actions");
-   const scaleButton = await js("(()=>{const b=document.querySelector('#touch-bar button[aria-label=\"Adjust editor UI scale\"]');b.scrollIntoView({block:'nearest',inline:'center'});const r=b.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,display:getComputedStyle(b).display}})()");
+   await js("document.querySelector('#touch-bar button[aria-label=\"Adjust editor UI scale\"]').scrollIntoView({block:'nearest',inline:'center'})");
+   await pause(100);
+   const scaleButton = await js("(()=>{const b=document.querySelector('#touch-bar button[aria-label=\"Adjust editor UI scale\"]');const r=b.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,display:getComputedStyle(b).display}})()");
    assert.notEqual(scaleButton.display,'none');
-   await touch('touchStart',[{x:scaleButton.x,y:scaleButton.y}]);await touch('touchEnd',[]);await pause(50);
+   assert.equal(await js(`document.elementFromPoint(${scaleButton.x},${scaleButton.y})?.getAttribute('aria-label')`),'Adjust editor UI scale','tap lands on the direct shortcut');
+   await js('events.splice(0)');
+   await touch('touchStart',[{x:scaleButton.x,y:scaleButton.y}]);await pause(30);await touch('touchEnd',[]);await pause(100);
+   assert(await js("!!document.querySelector('#touch-error')"),JSON.stringify({scaleButton,events:await js('events.splice(0)'),calls:await js('calls')}));
    assert.equal(await js("document.querySelector('#touch-error').tagName"),'DIALOG');
    assert(await js("document.querySelector('#touch-error').matches(':modal')"));
    assert(await js("!!document.querySelector('#touch-error select')"));
