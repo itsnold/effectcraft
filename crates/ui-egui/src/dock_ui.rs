@@ -536,7 +536,7 @@ impl EffectcraftApp {
                 let hit = divider.expand2(if landscape { vec2(6.0, 0.0) } else { vec2(0.0, 6.0) });
                 let response = ui.interact(hit, egui::Id::unique("phone-preview-divider"), Sense::drag());
                 self.auto.add("dock.gutter.phonePreview", hit, "Resize live preview");
-                response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Other, ui.is_enabled(), "Resize live preview"));
+                response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Unknown, ui.is_enabled(), "Resize live preview"));
                 if response.hovered() || response.dragged() {
                     ctx.set_cursor_icon(if landscape { egui::CursorIcon::ResizeHorizontal } else { egui::CursorIcon::ResizeVertical });
                 }

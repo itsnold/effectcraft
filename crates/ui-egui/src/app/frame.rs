@@ -322,6 +322,8 @@ impl EffectcraftApp {
         self.frame(ui);
         #[cfg(not(target_arch = "wasm32"))]
         pointer_wrap::finish_native(&ctx, frame);
+        #[cfg(target_arch = "wasm32")]
+        let _ = frame;
         // wasm32: no frame threads; render queued frames now, between UI frames.
         if cfg!(target_arch = "wasm32") && self.frames.pump(std::time::Duration::from_millis(if self.playback.playing { 24 } else { 40 })) {
             ctx.request_repaint();
