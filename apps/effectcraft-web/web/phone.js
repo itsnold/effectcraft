@@ -257,7 +257,6 @@ export function installPhoneWorkspace(api) {
     document.getElementById("touch-error").append(options); layouts(options);
   });
   layoutButton.setAttribute("aria-label", "Choose Auto, Phone or Tablet layout");
-  layoutButton.dataset.advanced = "true";
   const refresh = () => {
     controller.compact = wantsPhoneLayout(innerWidth, screen.width, screen.height);
     controller.sync().catch((e) => showTouchError(String(e)));

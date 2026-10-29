@@ -314,7 +314,6 @@ export function installTouchBar(canvas, { modifiers, controls }) {
     #phone-nav button { background:transparent !important; border-radius:10px !important; }
     #phone-hint { color:var(--mobile-muted) !important; background:var(--mobile-bg) !important; letter-spacing:.02em; }
     #touch-bar [hidden] { display:none !important; }
-    #touch-bar button[data-advanced=true] { display:none; }
     #touch-error label { display:block; flex-basis:100%; color:var(--mobile-muted); font-size:12px; font-weight:600; }
     @media(max-width:599px) { #touch-error { inset:auto 0 0; margin:0; width:100%; max-width:none; max-height:calc(100dvh - 20px);
       border-radius:22px 22px 0 0; padding:20px 16px max(20px,env(safe-area-inset-bottom)); }
@@ -325,7 +324,6 @@ export function installTouchBar(canvas, { modifiers, controls }) {
   const button = (label, title, action) => {
     const b = document.createElement("button");
     b.type = "button"; b.textContent = label; b.title = title; b.setAttribute("aria-label", title);
-    b.dataset.advanced = "true";
     // Avoid stealing text-editor focus until the action has been delivered.
     b.addEventListener("pointerdown", (e) => e.preventDefault());
     b.onclick = () => Promise.resolve().then(action).catch((e) => showTouchError(String(e)));
@@ -356,18 +354,9 @@ export function installTouchBar(canvas, { modifiers, controls }) {
     updateModes();
   });
   const done = button("Done", "Finish trimming or box selection", () => { controls.mode = "auto"; updateModes(); });
-  for (const b of [mode, box, trim, done]) b.dataset.advanced = "false";
-  const tools = button("Tools", "Open editing tools", () => {
-    const sheet = showTouchSheet("Navigation, precision controls and keyboard modifiers.", "Editing tools");
-    const options = document.createElement("div"); options.className = "phone-options"; sheet.append(options);
-    for (const original of bar.querySelectorAll('button[data-advanced=true]')) {
-      const b = document.createElement("button"); b.textContent = original.textContent; b.setAttribute("aria-label", original.getAttribute("aria-label"));
-      if (original.hasAttribute("aria-pressed")) b.setAttribute("aria-pressed", original.getAttribute("aria-pressed"));
-      b.onclick = () => { sheet.remove(); original.click(); }; options.append(b);
-    }
-  });
-  tools.dataset.advanced = "false";
   updateModes();
+  button("Undo", "Undo", () => invoke("edit.undo"));
+  button("Redo", "Redo", () => invoke("edit.redo"));
   button("UI", "Adjust editor UI scale", () => showScalePicker());
   button("Time −", "Zoom timeline out", () => invoke("timeline.zoomOut"));
   button("Time +", "Zoom timeline in", () => invoke("timeline.zoomIn"));
@@ -375,8 +364,6 @@ export function installTouchBar(canvas, { modifiers, controls }) {
   button("Frame ‹", "Move playhead one frame backward", () => invoke("time.previousFrame"));
   button("Frame ›", "Move playhead one frame forward", () => invoke("time.nextFrame"));
   button("Esc", "Dismiss menu / cancel editing", () => window.effectcraft.request("ui.key", { key: "Escape" }));
-  button("Undo", "Undo", () => invoke("edit.undo"));
-  button("Redo", "Redo", () => invoke("edit.redo"));
   button("Play", "Play / stop preview", () => window.effectcraft.request("ui.playback", {}));
   button("Save", "Save project to an Android document", () => invoke("file.save"));
   button("Open", "Open an existing project using the system picker", () => invoke("file.open"));

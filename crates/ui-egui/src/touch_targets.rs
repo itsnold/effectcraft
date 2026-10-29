@@ -16,7 +16,7 @@ pub struct Targets {
 }
 
 fn id() -> Id {
-    Id::new("touch-edit-targets")
+    Id::unique("touch-edit-targets")
 }
 
 pub(crate) fn begin_frame(ctx: &Context) {

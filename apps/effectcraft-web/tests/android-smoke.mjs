@@ -451,11 +451,8 @@ try {
   report.sidewaysOverKey = await sidewaysOverKey();
   report.tabletTimelineNavigation = await checkTimelineNavigation();
   report.tabletTouchEditing = await checkTouchEditing();
-  await js("document.querySelector('#touch-bar button[aria-label=\"Open editing tools\"]').click()");
-  await pause(100);
-  assert(await js("document.querySelector('#touch-error').matches(':modal')"),'tablet tools use a modal dialog');
-  await writeFile(join(out,'tablet-tools.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
-  await js('effectcraft.dismissTouchOverlay()');
+  assert(await js("[...document.querySelectorAll('#touch-bar button')].filter(b=>!b.hidden).every(b=>getComputedStyle(b).display!=='none')"),'tablet shortcuts are directly accessible without Tools');
+  await writeFile(join(out,'tablet-shortcuts.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
   report.tabletBoxAndTrim = await checkBoxAndTrim();
   // Make the timeline genuinely overflow, then swipe on a layer name. No synthetic
   // UI scroll command: only CDP finger input may change the scroll offset.

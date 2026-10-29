@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  EFFECTCRAFT_VERSION: "0.17.0"
+  EFFECTCRAFT_VERSION: "0.18.0"
   CARGO_TERM_COLOR: always
   CARGO_BUILD_JOBS: 2
   CARGO_PROFILE_RELEASE_LTO: "false"
@@ -116,7 +116,7 @@ jobs:
       - name: Verify APK launcher name and icon
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging packaging/android/app/build/outputs/apk/debug/app-debug.apk > target/android-badging.txt
-          grep -F "package: name='io.github.itsnold.ecdroid' versionCode='11' versionName='0.2.0-alpha'" target/android-badging.txt
+          grep -F "package: name='io.github.itsnold.ecdroid' versionCode='12' versionName='0.2.1-alpha'" target/android-badging.txt
           grep -F "application-label:'EffectCraft'" target/android-badging.txt
           grep -E "application: label='EffectCraft' icon='res/.+'" target/android-badging.txt
       - name: Checksum
@@ -184,15 +184,15 @@ jobs:
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$key"
           tools="$ANDROID_HOME/build-tools/35.0.0"
           "$tools/zipalign" -p -f 4 candidate/app-release-unsigned.apk candidate/aligned.apk
-          "$tools/apksigner" sign --ks "$key" --ks-key-alias "$KEY_ALIAS" --ks-pass env:KS_PASS --key-pass env:KEY_PASS --out candidate/EffectCraft-Android-0.2.0-alpha.apk candidate/aligned.apk
-          "$tools/apksigner" verify --verbose --print-certs candidate/EffectCraft-Android-0.2.0-alpha.apk
-          "$tools/aapt" dump badging candidate/EffectCraft-Android-0.2.0-alpha.apk > candidate/badging.txt
-          grep -F "versionCode='11' versionName='0.2.0-alpha'" candidate/badging.txt
+          "$tools/apksigner" sign --ks "$key" --ks-key-alias "$KEY_ALIAS" --ks-pass env:KS_PASS --key-pass env:KEY_PASS --out candidate/EffectCraft-Android-0.2.1-alpha.apk candidate/aligned.apk
+          "$tools/apksigner" verify --verbose --print-certs candidate/EffectCraft-Android-0.2.1-alpha.apk
+          "$tools/aapt" dump badging candidate/EffectCraft-Android-0.2.1-alpha.apk > candidate/badging.txt
+          grep -F "versionCode='12' versionName='0.2.1-alpha'" candidate/badging.txt
           if grep -q 'application-debuggable' candidate/badging.txt; then echo 'Refusing debuggable release'; exit 1; fi
           cd candidate
-          sha256sum EffectCraft-Android-0.2.0-alpha.apk > SHA256SUMS.txt
+          sha256sum EffectCraft-Android-0.2.1-alpha.apk > SHA256SUMS.txt
       - name: Create draft only; publish after device acceptance
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create android-v0.2.0-alpha candidate/EffectCraft-Android-0.2.0-alpha.apk candidate/SHA256SUMS.txt --target "$GITHUB_SHA" --title "EffectCraft Android 0.2.0-alpha" --notes-file docs/android-release-notes.md --draft --prerelease
+          gh release create android-v0.2.1-alpha candidate/EffectCraft-Android-0.2.1-alpha.apk candidate/SHA256SUMS.txt --target "$GITHUB_SHA" --title "EffectCraft Android 0.2.1-alpha" --notes-file docs/android-release-notes.md --draft --prerelease

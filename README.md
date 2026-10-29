@@ -6,7 +6,7 @@ The Android APK bundles the same Rust editor as WebAssembly in an offline WebVie
 right-click, one/two-finger scrolling, pinch zoom, touch shortcuts and Android document import/export.
 This is an **alpha tablet/landscape port**, not a fully redesigned mobile editor.
 
-Android **0.2.0-alpha candidate** bundles upstream **EffectCraft v0.17.0**, with a polished touch
+Android **0.2.1-alpha candidate** bundles upstream **EffectCraft v0.18.0**, with a polished touch
 workspace, browsable menus, selection actions, precision timing, **Box select** and **Trim**. GitHub Actions builds the APK from this checkout
 and checks the engine version. Public signing and device acceptance are covered in
 [the Android release checklist](docs/android-release.md); testing artifacts are not a stable release.
@@ -287,9 +287,13 @@ send us right now.
 | arm64 (Snapdragon and other ARM PCs) | `effectcraft-<ver>-windows-arm64.msi` | `effectcraft-<ver>-windows-arm64-portable.zip` |
 | x86 (32-bit) | `effectcraft-<ver>-windows-x86.msi` | `effectcraft-<ver>-windows-x86-portable.zip` |
 
-Installers and executables are code-signed. The installer asks where to install EffectCraft
-(Program Files by default), and later versions install into the same folder. To install silently
+Installers and executables are code-signed. The installer asks who to install EffectCraft for and where. By default it installs for your
+account only, into `%LOCALAPPDATA%\Programs\ArtCraft\EffectCraft`, without an administrator prompt;
+"Everyone on this computer" installs into `C:\Program Files\ArtCraft\EffectCraft` (`Program Files (x86)` for the 32-bit build). Later versions
+install into the same folder. To install silently
 into a folder of your choice: `msiexec /i effectcraft-<ver>-windows-x64.msi /qn INSTALLFOLDER="D:\Apps\EffectCraft"`.
+A silent install is per-user by default. `INSTALLFOLDER` chooses the folder, not who it is installed for;
+add `ALLUSERS=1`, from an elevated terminal or deployment tool, for an all-users install.
 
 ### macOS
 

@@ -7,12 +7,12 @@ services; the editing engine and codecs are unchanged Rust.
 
 ## Requirements and installation
 
-- Android port **0.2.0-alpha candidate** includes upstream **EffectCraft v0.17.0**
-  (`362474a843ddb67555d4c2d19ad6a590388aad0e`). This update brings preview/cache improvements, effect and text
-  rendering fixes, safer file readers, layer source replacement, Cryptomatte picking and
-  upstream UI/localization improvements.
+- Android port **0.2.1-alpha candidate** includes upstream **EffectCraft v0.18.0**
+  (`c3600f9b59b109da97871a43a6898683a0163cb1`). This update brings egui 0.37 and the refactored
+  upstream editor/docking implementation. Android-specific presentation and gesture handling
+  are adapted to the new code rather than replacing it with the older editor.
   The phone workspace, touch/timeline controls, 4096-pixel WebGL fallback, package ID and
-  project storage are preserved; the APK version code increases to 11.
+  project storage are preserved; the APK version code increases to 12.
 - Android 10 (API 29) or newer, OpenGL ES 3, and a recent **Android System WebView** (Chromium 120+
   recommended; update it through the Play Store). WebAssembly and WebGL2 must be enabled.
 - Phones get a compact, single-panel workspace in portrait and landscape; tablets keep the docked
@@ -34,12 +34,13 @@ services; the editing engine and codecs are unchanged Rust.
 
 ## Touch controls
 
-Version **0.2.0-alpha** refreshes phone and tablet controls with a shared dark palette, rounded
+Version **0.2.1-alpha** retains the refreshed phone and tablet controls with a shared dark palette, rounded
 surfaces, explicit focus/selection states and labelled precision fields. Menus/actions are normal
 dialogs, distinct from error alerts: phone bottom sheets and tablet centred dialogs have modal
-backgrounds, contained focus and Back/Escape dismissal. The editing tray keeps modes visible and
-puts the advanced shortcuts under **Tools**, including scale, navigation and modifier toggles.
-System file/save pickers remain native. The desktop dock and underlying editor theme are unchanged.
+backgrounds, contained focus and Back/Escape dismissal. All shortcut-bar buttons are directly
+available again: swipe the bar horizontally for scale, navigation and modifier toggles, without
+opening **Tools** first. Undo/Redo follow the editing modes for quicker access.
+System file/save pickers remain native; tablets retain upstream's docked editor.
 Public distribution remains gated on persistent release signing and real-device acceptance;
 see [android-release.md](android-release.md). No public/stable status is implied by a debug artifact.
 
@@ -119,7 +120,7 @@ already fits, pinch to zoom in first; there is no offscreen time to scroll to at
 | Viewer / Timeline buttons | Maximize / restore on tablets; switch the main panel on phones |
 | Fit | Fit composition and reset pan |
 
-The **Tools** sheet exposes the advanced shortcuts with touch-sized buttons: Undo,
+The horizontally swipeable shortcut bar exposes direct touch-sized buttons: Undo,
 Redo, Play, Save, Import, Select, Hand, Fit, modifier toggles, panel expansion and Help.
 The **UI** shortcut changes editor scale (75–200%); 100% is the default and 75–90% fits more on a
 small display. **Esc** dismisses menus/edits and **Delete** clears the current selection. Most
@@ -208,13 +209,13 @@ including workers, fonts and licences. No native ABI library is needed: the same
 ARM64 and x86_64 devices with a compatible WebView.
 
 GitHub Actions builds from source on `android` pushes and manual dispatch. It verifies the workspace
-and lockfile target **0.17.0**, then runs the full upstream Rust gate separately (using nextest for
-the 0.17 dev-profile gate), Node gesture/browser-host tests, JVM export tests, the WASM build, Android lint
+and lockfile target **0.18.0**, then runs the full upstream Rust gate separately (using nextest for
+the dev-profile gate), Node gesture/browser-host tests, JVM export tests, the WASM build, Android lint
 and APK assembly. A headless browser test checks the Android-mode UI. It uploads the testing APK
 and checksum only after that job's checks pass. The separate Rust gate can expose existing upstream
 failures; inspect **both** jobs before distributing an artifact.
-The APK check also verifies package ID, version **0.2.0-alpha** / code **11**, launcher name and icon.
-The upstream CI workflow and release-workflow permission changes are included from v0.17.0.
+The APK check also verifies package ID, version **0.2.1-alpha** / code **12**, launcher name and icon.
+The upstream release is merged in full, including its CI changes; Android publishing stays separate.
 Touch regressions include real-finger box selection and both-end trim/extend with one-step undo,
 on phone and tablet layouts, repeated under the synthetic 4096-pixel WebGL limit.
 

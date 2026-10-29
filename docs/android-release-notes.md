@@ -1,19 +1,20 @@
-# EffectCraft Android 0.2.0-alpha
+# EffectCraft Android 0.2.1-alpha
 
-First-public-alpha candidate of the **unofficial Android fork**, based on EffectCraft v0.17.0.
+First-public-alpha candidate of the **unofficial Android fork**, based on EffectCraft v0.18.0.
 
 ## What's changed
 
 - A consistent dark mobile style, clearer selected/focus states and labelled timing fields.
 - Responsive bottom sheets on phones and centred dialogs on tablets; background interaction is
   blocked while a sheet is open, with keyboard focus containment and Back/Escape dismissal.
-- Compact editing tray with advanced shortcuts under **Tools** rather than an endless button strip.
+- Direct, swipeable shortcut bar: no extra **Tools** tap for Undo/Redo, scale, frame steps or modifiers.
+- Upstream v0.18.0 engine/editor update, including the egui 0.37 migration, with Android layouts retained.
 - Browsable File/Edit/Composition/Layer/Effect/Animation/View/Window/Help menus on phones.
 - Selection actions, precise frame timing, keyframe easing, touch trimming and box selection.
 
 ## Install and back up first
 
-Download `EffectCraft-Android-0.2.0-alpha.apk` and allow installation from your browser/file manager.
+Download `EffectCraft-Android-0.2.1-alpha.apk` and allow installation from your browser/file manager.
 Check its SHA-256 against `SHA256SUMS.txt`. Requires Android 10+, OpenGL ES 3 and a recent Android
 System WebView. This is not a Play Store release.
 

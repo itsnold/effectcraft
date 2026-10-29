@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 
 fn set(app: &mut EffectcraftApp, value: Value) -> Value {
     let (request, _rx) = ControlRequest::new("ui.set", value);
-    match control::handle(app, &egui::Context::default(), &request) {
+    match control::handle(app, &egui::Context::default(), &request, 0.0) {
         Outcome::Done(result) => result,
         _ => panic!("ui.set must finish immediately"),
     }

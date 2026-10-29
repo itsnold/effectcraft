@@ -165,11 +165,18 @@ try {
  }
  events=await js("events.splice(0)");assert(events.some(e=>e.type==='pointerdown'&&e.pointerType==='pen'&&e.trusted));
  assert(events.some(e=>e.type==='pointerdown'&&e.pointerType==='mouse'&&e.trusted));
-  // Advanced commands live in a real modal tool sheet, not an endless shortcut strip.
-  await js("document.querySelector('#touch-bar button[aria-label=\"Open editing tools\"]').click()"); await pause(50);
-  assert.equal(await js("document.querySelector('#touch-error').tagName"),'DIALOG');
-  assert(await js("document.querySelector('#touch-error').matches(':modal')"));
-  assert(await js("!!document.querySelector('#touch-error button[aria-label=\"Adjust editor UI scale\"]')"));
+   // Shortcuts are direct buttons again: swiping the bar must not invoke any of them.
+   assert.equal(await js("!!document.querySelector('#touch-bar button[aria-label=\"Open editing tools\"]')"),false);
+   const callsBeforeSwipe = await js("calls.length");
+   await swipe({x:650,y:575},{x:100,y:575});
+   assert(await js("document.querySelector('#touch-bar').scrollLeft>100"));
+   assert.equal(await js("calls.length"),callsBeforeSwipe,"scrolling shortcut bar cannot trigger actions");
+   const scaleButton = await js("(()=>{const b=document.querySelector('#touch-bar button[aria-label=\"Adjust editor UI scale\"]');b.scrollIntoView({block:'nearest',inline:'center'});const r=b.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,display:getComputedStyle(b).display}})()");
+   assert.notEqual(scaleButton.display,'none');
+   await touch('touchStart',[{x:scaleButton.x,y:scaleButton.y}]);await touch('touchEnd',[]);await pause(50);
+   assert.equal(await js("document.querySelector('#touch-error').tagName"),'DIALOG');
+   assert(await js("document.querySelector('#touch-error').matches(':modal')"));
+   assert(await js("!!document.querySelector('#touch-error select')"));
   await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
   await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27}); await pause(50);
   assert.equal(await js("!!document.querySelector('#touch-error')"),false);
