@@ -7,12 +7,12 @@ services; the editing engine and codecs are unchanged Rust.
 
 ## Requirements and installation
 
-- Android port **0.1.9-alpha** includes upstream **EffectCraft v0.17.0**
+- Android port **0.2.0-alpha candidate** includes upstream **EffectCraft v0.17.0**
   (`362474a843ddb67555d4c2d19ad6a590388aad0e`). This update brings preview/cache improvements, effect and text
   rendering fixes, safer file readers, layer source replacement, Cryptomatte picking and
   upstream UI/localization improvements.
   The phone workspace, touch/timeline controls, 4096-pixel WebGL fallback, package ID and
-  project storage are preserved; the APK version code increases to 10.
+  project storage are preserved; the APK version code increases to 11.
 - Android 10 (API 29) or newer, OpenGL ES 3, and a recent **Android System WebView** (Chromium 120+
   recommended; update it through the Play Store). WebAssembly and WebGL2 must be enabled.
 - Phones get a compact, single-panel workspace in portrait and landscape; tablets keep the docked
@@ -33,6 +33,15 @@ services; the editing engine and codecs are unchanged Rust.
   the app's private session/media storage. Never rely on it as your only copy.
 
 ## Touch controls
+
+Version **0.2.0-alpha** refreshes phone and tablet controls with a shared dark palette, rounded
+surfaces, explicit focus/selection states and labelled precision fields. Menus/actions are normal
+dialogs, distinct from error alerts: phone bottom sheets and tablet centred dialogs have modal
+backgrounds, contained focus and Back/Escape dismissal. The editing tray keeps modes visible and
+puts the advanced shortcuts under **Tools**, including scale, navigation and modifier toggles.
+System file/save pickers remain native. The desktop dock and underlying editor theme are unchanged.
+Public distribution remains gated on persistent release signing and real-device acceptance;
+see [android-release.md](android-release.md). No public/stable status is implied by a debug artifact.
 
 Version **0.1.9-alpha** makes **Menu** a complete browsable menu tree on phones: File, Edit,
 Composition, Layer, Effect, Animation, View, Window and Help, including submenus, search,
@@ -110,7 +119,7 @@ already fits, pinch to zoom in first; there is no offscreen time to scroll to at
 | Viewer / Timeline buttons | Maximize / restore on tablets; switch the main panel on phones |
 | Fit | Fit composition and reset pan |
 
-The bottom shortcut bar scrolls horizontally and has 48 × 44 CSS-pixel minimum buttons: Undo,
+The **Tools** sheet exposes the advanced shortcuts with touch-sized buttons: Undo,
 Redo, Play, Save, Import, Select, Hand, Fit, modifier toggles, panel expansion and Help.
 The **UI** shortcut changes editor scale (75–200%); 100% is the default and 75–90% fits more on a
 small display. **Esc** dismisses menus/edits and **Delete** clears the current selection. Most
@@ -204,7 +213,7 @@ the 0.17 dev-profile gate), Node gesture/browser-host tests, JVM export tests, t
 and APK assembly. A headless browser test checks the Android-mode UI. It uploads the testing APK
 and checksum only after that job's checks pass. The separate Rust gate can expose existing upstream
 failures; inspect **both** jobs before distributing an artifact.
-The APK check also verifies package ID, version **0.1.9-alpha** / code **10**, launcher name and icon.
+The APK check also verifies package ID, version **0.2.0-alpha** / code **11**, launcher name and icon.
 The upstream CI workflow and release-workflow permission changes are included from v0.17.0.
 Touch regressions include real-finger box selection and both-end trim/extend with one-step undo,
 on phone and tablet layouts, repeated under the synthetic 4096-pixel WebGL limit.

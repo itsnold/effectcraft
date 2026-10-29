@@ -4,6 +4,11 @@ on:
   push:
     branches: [android]
   workflow_dispatch:
+    inputs:
+      release_candidate:
+        description: "Sign a release candidate and create a draft (requires Android signing secrets)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -111,12 +116,20 @@ jobs:
       - name: Verify APK launcher name and icon
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging packaging/android/app/build/outputs/apk/debug/app-debug.apk > target/android-badging.txt
-          grep -F "package: name='io.github.itsnold.ecdroid' versionCode='10' versionName='0.1.9-alpha'" target/android-badging.txt
+          grep -F "package: name='io.github.itsnold.ecdroid' versionCode='11' versionName='0.2.0-alpha'" target/android-badging.txt
           grep -F "application-label:'EffectCraft'" target/android-badging.txt
           grep -E "application: label='EffectCraft' icon='res/.+'" target/android-badging.txt
       - name: Checksum
         working-directory: packaging/android/app/build/outputs/apk/debug
         run: sha256sum app-debug.apk > SHA256SUMS.txt
+      - name: Assemble unsigned release candidate
+        run: gradle -p packaging/android :app:assembleRelease :app:lintRelease --stacktrace
+      - uses: actions/upload-artifact@v4
+        if: inputs.release_candidate == true
+        with:
+          name: android-unsigned-candidate
+          path: packaging/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: effectcraft-android-debug
@@ -134,3 +147,52 @@ jobs:
             target/android-badging.txt
             packaging/android/app/build/reports/
           if-no-files-found: ignore
+
+  release-candidate:
+    name: Sign and draft public alpha
+    if: inputs.release_candidate == true
+    needs: [apk, rust-gate]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - run: sdkmanager "build-tools;35.0.0"
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-unsigned-candidate
+          path: candidate
+      - name: Sign and verify (never create an ephemeral release key)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64" && test -n "$KS_PASS" && test -n "$KEY_PASS" && test -n "$KEY_ALIAS" || { echo 'Missing Android signing secrets. See docs/android-release.md.'; exit 1; }
+          umask 077
+          key="$RUNNER_TEMP/android-release.keystore"
+          trap 'rm -f "$key"' EXIT
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$key"
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          "$tools/zipalign" -p -f 4 candidate/app-release-unsigned.apk candidate/aligned.apk
+          "$tools/apksigner" sign --ks "$key" --ks-key-alias "$KEY_ALIAS" --ks-pass env:KS_PASS --key-pass env:KEY_PASS --out candidate/EffectCraft-Android-0.2.0-alpha.apk candidate/aligned.apk
+          "$tools/apksigner" verify --verbose --print-certs candidate/EffectCraft-Android-0.2.0-alpha.apk
+          "$tools/aapt" dump badging candidate/EffectCraft-Android-0.2.0-alpha.apk > candidate/badging.txt
+          grep -F "versionCode='11' versionName='0.2.0-alpha'" candidate/badging.txt
+          if grep -q 'application-debuggable' candidate/badging.txt; then echo 'Refusing debuggable release'; exit 1; fi
+          cd candidate
+          sha256sum EffectCraft-Android-0.2.0-alpha.apk > SHA256SUMS.txt
+      - name: Create draft only; publish after device acceptance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create android-v0.2.0-alpha candidate/EffectCraft-Android-0.2.0-alpha.apk candidate/SHA256SUMS.txt --target "$GITHUB_SHA" --title "EffectCraft Android 0.2.0-alpha" --notes-file docs/android-release-notes.md --draft --prerelease

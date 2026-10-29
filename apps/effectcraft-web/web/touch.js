@@ -269,6 +269,8 @@ export function installTouchBar(canvas, { modifiers, controls }) {
   bar.setAttribute("aria-label", "Touch editing shortcuts");
   const style = document.createElement("style");
   style.textContent = `
+    :root { --mobile-bg:#17191d; --mobile-panel:#22252b; --mobile-raised:#2c3038;
+      --mobile-line:#3b414c; --mobile-text:#eef1f7; --mobile-muted:#b6bfce; --mobile-accent:#83b7ff; color-scheme:dark; }
     #touch-bar { position:fixed; bottom:0; left:0; right:0; height:52px; display:flex;
       gap:6px; padding:4px 8px; box-sizing:border-box; overflow-x:auto; background:#202126;
       border-top:1px solid #444; font:14px system-ui; z-index:5; touch-action:pan-x; overscroll-behavior:contain; }
@@ -279,11 +281,51 @@ export function installTouchBar(canvas, { modifiers, controls }) {
     #touch-error { position:fixed; inset:10%; z-index:20; background:#25262c; color:white;
       padding:24px; font:16px system-ui; overflow:auto; border:1px solid #888; }
     #touch-error button, #touch-error select { min-height:44px; margin:8px; padding:8px 16px; font:inherit; }
+    #touch-bar, #phone-toolbar, #phone-nav { background:var(--mobile-bg) !important; border-color:var(--mobile-line) !important; }
+    #touch-bar button, #phone-toolbar button, #phone-nav button, #touch-error button {
+      appearance:none; box-sizing:border-box; border:1px solid transparent !important; border-radius:12px !important;
+      background:var(--mobile-raised) !important; color:var(--mobile-text) !important; font:500 13px/1.3 system-ui,sans-serif;
+      letter-spacing:.01em; cursor:pointer; transition:background-color 120ms,color 120ms; }
+    #touch-bar button:hover, #phone-toolbar button:hover, #phone-nav button:hover, #touch-error button:hover { background:#373e49 !important; }
+    #touch-bar button:active, #phone-toolbar button:active, #phone-nav button:active, #touch-error button:active { background:#42516a !important; }
+    #touch-bar button[aria-pressed=true], #phone-nav button[aria-pressed=true], #touch-error button[aria-pressed=true] {
+      color:#d9e8ff !important; background:#23466f !important; border-color:#568bc5 !important; }
+    #touch-error button:disabled { opacity:.45; cursor:not-allowed; }
+    #touch-bar button:focus-visible, #phone-toolbar button:focus-visible, #phone-nav button:focus-visible,
+    #touch-error :focus-visible { outline:2px solid var(--mobile-accent); outline-offset:2px; }
+    #touch-error { position:fixed; inset:0; margin:auto; width:min(560px,calc(100% - 32px)); max-height:calc(100dvh - 32px);
+      box-sizing:border-box; border:1px solid var(--mobile-line); border-radius:20px; padding:20px;
+      background:var(--mobile-panel); color:var(--mobile-text); box-shadow:0 20px 70px #0008; font:14px/1.5 system-ui,sans-serif; }
+    #touch-error::backdrop { background:#090c12b8; }
+    #touch-error header { display:flex; align-items:center; justify-content:space-between; gap:16px;
+      position:sticky; top:-20px; background:var(--mobile-panel); z-index:1; padding:4px 0 12px; }
+    #touch-error h2 { margin:0; font-size:18px; font-weight:650; letter-spacing:-.02em; }
+    #touch-error header button { margin:0; background:transparent !important; color:var(--mobile-muted) !important; }
+    #touch-error p { color:var(--mobile-muted); margin:8px 0 16px; }
+    #touch-error button { min-height:48px; margin:4px; padding:10px 14px; }
+    #touch-error input, #touch-error select { appearance:none; box-sizing:border-box; width:100%; min-height:48px;
+      border:1px solid var(--mobile-line); border-radius:10px; padding:10px 12px; background:var(--mobile-bg); color:var(--mobile-text); font:16px system-ui; }
+    #touch-error .phone-options { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+    #touch-error .phone-options button { flex:1 0 110px; margin:0; }
+    #phone-commands { display:flex; flex-direction:column; gap:2px; margin-top:12px; }
+    #phone-commands button { text-align:left; margin:0; min-height:48px; background:transparent !important; border-radius:8px !important; }
+    #phone-commands small { display:block; color:var(--mobile-muted); font-size:11px; margin-top:3px; }
+    #phone-toolbar button:last-child { background:#254e7d !important; color:#e3efff !important; }
+    #phone-nav button { background:transparent !important; border-radius:10px !important; }
+    #phone-hint { color:var(--mobile-muted) !important; background:var(--mobile-bg) !important; letter-spacing:.02em; }
+    #touch-bar [hidden] { display:none !important; }
+    #touch-bar button[data-advanced=true] { display:none; }
+    #touch-error label { display:block; flex-basis:100%; color:var(--mobile-muted); font-size:12px; font-weight:600; }
+    @media(max-width:599px) { #touch-error { inset:auto 0 0; margin:0; width:100%; max-height:calc(100dvh - 20px);
+      border-radius:22px 22px 0 0; padding:20px 16px max(20px,env(safe-area-inset-bottom)); }
+      #touch-error header { top:-20px; } }
+    @media(prefers-reduced-motion:reduce) { #touch-bar button, #phone-toolbar button, #phone-nav button, #touch-error button { transition:none; } }
   `;
   document.head.append(style);
   const button = (label, title, action) => {
     const b = document.createElement("button");
     b.type = "button"; b.textContent = label; b.title = title; b.setAttribute("aria-label", title);
+    b.dataset.advanced = "true";
     // Avoid stealing text-editor focus until the action has been delivered.
     b.addEventListener("pointerdown", (e) => e.preventDefault());
     b.onclick = () => Promise.resolve().then(action).catch((e) => showTouchError(String(e)));
@@ -314,6 +356,17 @@ export function installTouchBar(canvas, { modifiers, controls }) {
     updateModes();
   });
   const done = button("Done", "Finish trimming or box selection", () => { controls.mode = "auto"; updateModes(); });
+  for (const b of [mode, box, trim, done]) b.dataset.advanced = "false";
+  const tools = button("Tools", "Open editing tools", () => {
+    const sheet = showTouchSheet("Navigation, precision controls and keyboard modifiers.", "Editing tools");
+    const options = document.createElement("div"); options.className = "phone-options"; sheet.append(options);
+    for (const original of bar.querySelectorAll('button[data-advanced=true]')) {
+      const b = document.createElement("button"); b.textContent = original.textContent; b.setAttribute("aria-label", original.getAttribute("aria-label"));
+      if (original.hasAttribute("aria-pressed")) b.setAttribute("aria-pressed", original.getAttribute("aria-pressed"));
+      b.onclick = () => { sheet.remove(); original.click(); }; options.append(b);
+    }
+  });
+  tools.dataset.advanced = "false";
   updateModes();
   button("UI", "Adjust editor UI scale", () => showScalePicker());
   button("Time −", "Zoom timeline out", () => invoke("timeline.zoomOut"));
@@ -342,7 +395,7 @@ export function installTouchBar(canvas, { modifiers, controls }) {
   button("Viewer", "Maximize / restore Composition panel", () => expand("Composition"));
   button("Timeline", "Maximize / restore Timeline panel", () => expand("Timeline"));
   button("Delete", "Delete selected items or layers", () => invoke("edit.clear"));
-  button("Help", "Touch controls and Android limitations", () => showTouchError(
+  button("Help", "Touch controls and Android limitations", () => showTouchSheet(
     "Auto: swipe in either direction to scroll the timeline and media/effects lists without moving layers or keys. " +
     "Pinch to zoom in first if the whole timeline already fits. Swipe over the time bars to move through time. " +
     "Drag the time ruler / playhead to scrub; drag the bottom time-zoom slider or top navigator handles to change the time scale. " +
@@ -368,7 +421,7 @@ export function installTouchBar(canvas, { modifiers, controls }) {
 
 async function showScalePicker() {
   const current = await window.effectcraft.execute("prefs.get", { key: "appearance.uiScale" });
-  showTouchError("Editor UI scale. Smaller values fit more controls on screen.");
+  showTouchSheet("Smaller values fit more controls on screen.", "Editor scale");
   const box = document.getElementById("touch-error");
   const select = document.createElement("select");
   select.setAttribute("aria-label", "Editor UI scale");
@@ -423,18 +476,31 @@ export async function applyAndroidDefaults(api, storage) {
 }
 
 export function showTouchError(message, retry) {
-  const old = document.getElementById("touch-error");
-  if (old) old.remove();
-  const box = document.createElement("section");
-  box.id = "touch-error"; box.setAttribute("role", "alertdialog");
-  const text = document.createElement("p"); text.textContent = message; box.append(text);
+  const box = showTouchSheet(message, "Something needs attention", true);
   if (retry) {
     const button = document.createElement("button"); button.textContent = "Retry export";
     button.onclick = () => { box.remove(); retry(); }; box.append(button);
   }
-  const close = document.createElement("button"); close.textContent = "Close";
-  close.onclick = () => box.remove(); box.append(close);
+  return box;
+}
+
+// Native dialog provides focus containment, inert background and Escape dismissal. The
+// content is ours, not a platform alert; system file/save pickers deliberately stay native.
+export function showTouchSheet(message, title = "Editor", error = false) {
+  const old = document.getElementById("touch-error");
+  if (old) old.remove();
+  const box = document.createElement("dialog");
+  box.id = "touch-error"; box.setAttribute("role", error ? "alertdialog" : "dialog");
+  box.setAttribute("aria-labelledby", "touch-sheet-title");
+  const header = document.createElement("header");
+  const heading = document.createElement("h2"); heading.id = "touch-sheet-title"; heading.textContent = title;
+  const close = document.createElement("button"); close.textContent = "Close"; close.setAttribute("aria-label", "Close sheet");
+  close.onclick = () => box.remove(); header.append(heading,close); box.append(header);
+  const text = document.createElement("p"); text.textContent = message; box.append(text);
+  box.addEventListener("cancel", event => { event.preventDefault(); box.remove(); });
   document.body.append(box);
+  box.showModal();
+  return box;
 }
 
 // WebView's DownloadManager cannot download blob: URLs. Catch the editor's download anchors,

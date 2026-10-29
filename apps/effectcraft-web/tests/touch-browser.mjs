@@ -165,10 +165,14 @@ try {
  }
  events=await js("events.splice(0)");assert(events.some(e=>e.type==='pointerdown'&&e.pointerType==='pen'&&e.trusted));
  assert(events.some(e=>e.type==='pointerdown'&&e.pointerType==='mouse'&&e.trusted));
- // The shortcut bar must itself pan horizontally, without firing a shortcut while swiping.
- await swipe({x:650,y:575},{x:100,y:575});
- assert(await js("document.querySelector('#touch-bar').scrollLeft>100"));
- assert.equal(await js("calls.length"),0,"scrolling shortcut bar cannot trigger actions");
+  // Advanced commands live in a real modal tool sheet, not an endless shortcut strip.
+  await js("document.querySelector('#touch-bar button[aria-label=\"Open editing tools\"]').click()"); await pause(50);
+  assert.equal(await js("document.querySelector('#touch-error').tagName"),'DIALOG');
+  assert(await js("document.querySelector('#touch-error').matches(':modal')"));
+  assert(await js("!!document.querySelector('#touch-error button[aria-label=\"Adjust editor UI scale\"]')"));
+  await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+  await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27}); await pause(50);
+  assert.equal(await js("!!document.querySelector('#touch-error')"),false);
  await js("document.querySelector('#touch-bar button[aria-label=\"Adjust editor UI scale\"]').click()");
  await pause(50);assert(await js("!!document.querySelector('#touch-error select')"));
  await js("document.querySelector('#touch-error select').value='85';[...document.querySelectorAll('#touch-error button')].find(b=>b.textContent==='Apply').click()");
@@ -190,7 +194,9 @@ try {
   assert.equal(await js("layout.phonePanel"),'Timeline');
   const canvasBox=await js("(()=>{const r=document.querySelector('canvas').getBoundingClientRect();return {top:r.top,bottom:r.bottom,width:r.width}})()");
   assert.equal(canvasBox.top,68);assert.equal(canvasBox.bottom,744);assert.equal(canvasBox.width,390);
-  await js("document.querySelector('#phone-toolbar button[aria-label=Menu]').click()");await pause(100);
+   await js("document.querySelector('#phone-toolbar button[aria-label=Menu]').click()");await pause(100);
+   assert.equal(await js("document.querySelector('#touch-error').getAttribute('role')"),'dialog','normal menus are not error alerts');
+   assert(await js("(()=>{const r=document.querySelector('#touch-error').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.bottom<=innerHeight+1})()"),'phone sheet fits the viewport');
    assert.equal(await js("document.querySelector('#phone-commands button').textContent"),'Composition ›');
    await js("document.querySelector('#phone-commands button').click()");await pause(50);
    await js("[...document.querySelectorAll('#phone-commands button')].find(b=>b.textContent==='New Composition').click()");await pause(100);

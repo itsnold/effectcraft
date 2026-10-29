@@ -1,5 +1,5 @@
 // Original phone presentation. The Rust dock is never replaced or saved by this controller.
-import { showTouchError } from "./touch.js";
+import { showTouchError, showTouchSheet } from "./touch.js";
 
 export const PHONE_PANELS = [
   ["Composition", "Preview"], ["Timeline", "Timeline"], ["Project", "Media"],
@@ -89,14 +89,7 @@ export function installPhoneWorkspace(api) {
       border:1px solid #555; border-radius:7px; color:#fff; background:#30323a; font:12px system-ui; }
     #phone-nav button[aria-pressed=true] { background:#245c9c; border-color:#599ce3; }
     html[data-phone-layout=true] #effectcraft_canvas { top:68px; bottom:100px; height:calc(100% - 168px) !important; }
-    html[data-phone-layout=true] #touch-error { inset:8px; padding:14px; border-radius:12px; }
-    #touch-error .phone-options { display:flex; flex-wrap:wrap; gap:4px; }
-    #touch-error .phone-options button { flex:1 0 110px; margin:2px; }
-    #touch-error input { box-sizing:border-box; width:100%; min-height:44px; padding:8px; font:16px system-ui;
-      color:white; background:#18191d; border:1px solid #666; border-radius:6px; }
-    #phone-commands { display:flex; flex-direction:column; gap:4px; }
-    #phone-commands button { text-align:left; margin:0; min-height:44px; }
-    #phone-commands small { display:block; color:#bcc5d0; }
+    #phone-toolbar button, #phone-nav button { font-weight:550; }
   `;
   document.head.append(style);
   const toolbar = document.createElement("nav"); toolbar.id = "phone-toolbar"; toolbar.setAttribute("aria-label", "Phone editing actions");
@@ -114,7 +107,7 @@ export function installPhoneWorkspace(api) {
     document.documentElement.dataset.phoneLayout = String(state.enabled);
     const actual = api.touchLayout?.()?.phonePanel || state.panel;
     for (const [id, b] of panels) b.setAttribute("aria-pressed", String(id === actual || (id === "EffectsPresets" && actual === "EffectControls")));
-    hint.textContent = actual === "Timeline" ? "Swipe: scroll · Hold + drag: edit · Numbers: slide" : `${PHONE_PANELS.find(([id]) => id === actual)?.[1] || actual} · Hold, then release for options`;
+    hint.textContent = `${PHONE_PANELS.find(([id]) => id === actual)?.[1] || actual} workspace`;
   });
   const invoke = (id, params = {}) => api.request("ui.menu.invoke", { id, params });
   button(toolbar, "Menu", () => commands());
@@ -139,7 +132,7 @@ export function installPhoneWorkspace(api) {
     }
   }
   function more() {
-    showTouchError("Panels and layout. Your tablet workspace is preserved.");
+    showTouchSheet("Your tablet workspace is preserved when switching layouts.", "Workspace");
     const box = document.getElementById("touch-error");
     const options = document.createElement("div"); options.className = "phone-options"; box.append(options);
     for (const [id, label] of PHONE_PANELS) choose(options, label, () => controller.setPanel(id));
@@ -148,7 +141,7 @@ export function installPhoneWorkspace(api) {
     layouts(options);
   }
   async function commands() {
-    showTouchError("Editor menus — browse a category or search all commands.");
+    showTouchSheet("Browse a category or search all commands.", "Editor menus");
     const box = document.getElementById("touch-error");
     box.setAttribute("aria-label", "Editor menus");
     const quick = document.createElement("div"); quick.className = "phone-options";
@@ -183,7 +176,7 @@ export function installPhoneWorkspace(api) {
     input.oninput = fill; fill();
   }
   function addItems() {
-    showTouchError("Add to your composition");
+    showTouchSheet("Create a layer or bring in your own media.", "Add to composition");
     const box = document.getElementById("touch-error");
     const options = document.createElement("div"); options.className = "phone-options"; box.append(options);
     for (const [label, id, params] of [["Text", "layer.newText"], ["Shape", "layer.newShape", {kind:"rectangle"}],
@@ -194,7 +187,7 @@ export function installPhoneWorkspace(api) {
   async function selectionActions() {
     const snapshot = await api.inspect();
     const layers = snapshot.selectedLayers;
-    showTouchError(snapshot.selectedKeys ? `${snapshot.selectedKeys} selected keyframes` : `${layers.length} selected layers`);
+    showTouchSheet(snapshot.selectedKeys ? `${snapshot.selectedKeys} selected keyframes` : `${layers.length} selected layers`, "Selection actions");
     const box = document.getElementById("touch-error"); box.setAttribute("aria-label", "Selection actions");
     const options = document.createElement("div"); options.className = "phone-options"; box.append(options);
     const run = async (id, params = {}) => {
@@ -219,7 +212,7 @@ export function installPhoneWorkspace(api) {
   async function precisionTiming(snapshot) {
     const comp = await api.execute("comp.info", {comp:snapshot.activeComp});
     if (!comp.layers.some(layer => snapshot.selectedLayers.includes(layer.id))) throw new Error("Select a layer first.");
-    showTouchError("Precision timing — frame numbers from composition start. Each tap or Apply is one undo step.");
+    showTouchSheet("Frame numbers from composition start. Each adjustment is one undo step.", "Precision timing");
     const box = document.getElementById("touch-error"); box.setAttribute("aria-label", "Precision timing");
     const status = document.createElement("p"); status.setAttribute("role", "status"); box.append(status);
     const fields = new Map();
@@ -244,6 +237,8 @@ export function installPhoneWorkspace(api) {
       const row = document.createElement("div"); row.className = "phone-options";
       const input = document.createElement("input"); input.type = "number"; input.step = "1";
       input.setAttribute("aria-label", `${label} frame`); fields.set(field,input); box.append(row);
+      const caption = document.createElement("label"); caption.textContent = `${label} frame`; input.id = `timing-${field}`; caption.htmlFor = input.id;
+      row.append(caption);
       button(row, `${label} −1f`, () => apply({layers:snapshot.selectedLayers,[`${field}Delta`]:-1/comp.frameRate}));
       button(row, `${label} +1f`, () => apply({layers:snapshot.selectedLayers,[`${field}Delta`]:1/comp.frameRate}));
       row.append(input);
@@ -257,11 +252,12 @@ export function installPhoneWorkspace(api) {
     await refresh();
   }
   const layoutButton = button(document.getElementById("touch-bar"), "Layout", () => {
-    showTouchError("Choose the workspace for this screen.");
+    showTouchSheet("Choose the workspace for this screen.", "Layout");
     const options = document.createElement("div"); options.className = "phone-options";
     document.getElementById("touch-error").append(options); layouts(options);
   });
   layoutButton.setAttribute("aria-label", "Choose Auto, Phone or Tablet layout");
+  layoutButton.dataset.advanced = "true";
   const refresh = () => {
     controller.compact = wantsPhoneLayout(innerWidth, screen.width, screen.height);
     controller.sync().catch((e) => showTouchError(String(e)));
