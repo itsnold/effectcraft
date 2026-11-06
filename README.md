@@ -51,7 +51,8 @@ are not promised.
 ## What you can do
 
 - Build compositions with text, shapes, images, video, solids and nested compositions.
-- Animate properties with keyframes and easing; use EffectCraft's effects and compositing tools.
+- Animate properties with keyframes and easing; use EffectCraft's 308 built-in effects and
+  compositing tools.
 - Browse the full File, Edit, Composition, Layer, Effect, Animation, View, Window and Help menus.
 - Use phone-friendly selection actions, frame-accurate timing, **Box select**, **Trim** and Undo/Redo.
 - Keep a live composition preview beside or above the phone timeline, resize it, or hide it.
