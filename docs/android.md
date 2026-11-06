@@ -7,12 +7,12 @@ services; the editing engine and codecs are unchanged Rust.
 
 ## Requirements and installation
 
-- Android port **0.2.1-alpha candidate** includes upstream **EffectCraft v0.18.0**
-  (`c3600f9b59b109da97871a43a6898683a0163cb1`). This update brings egui 0.37 and the refactored
-  upstream editor/docking implementation. Android-specific presentation and gesture handling
-  are adapted to the new code rather than replacing it with the older editor.
+- Android port **0.2.2-alpha candidate** includes upstream **EffectCraft v0.21.1**
+  (`df4cc0932803f6183151083a5dfdd175f9d0a4ca`). Android-specific presentation and gesture handling
+  are integrated with the updated editor, including upstream's keyframe marquee hit-testing
+  adapted to phone row heights. New upstream features are not all device-validated.
   The phone workspace, touch/timeline controls, 4096-pixel WebGL fallback, package ID and
-  project storage are preserved; the APK version code increases to 12.
+  project storage are preserved; the APK version code increases to 13.
 - Android 10 (API 29) or newer, OpenGL ES 3, and a recent **Android System WebView** (Chromium 120+
   recommended; update it through the Play Store). WebAssembly and WebGL2 must be enabled.
 - Phones get a compact, single-panel workspace in portrait and landscape; tablets keep the docked
@@ -209,14 +209,14 @@ including workers, fonts and licences. No native ABI library is needed: the same
 ARM64 and x86_64 devices with a compatible WebView.
 
 GitHub Actions builds from source on `android` pushes and manual dispatch. It verifies the workspace
-and lockfile target **0.18.0**, then runs the full upstream Rust gate separately (using nextest for
+and lockfile target **0.21.1**, then runs the full upstream Rust gate separately (using nextest for
 the dev-profile gate), Node gesture/browser-host tests, JVM export tests, the WASM build, Android lint
 and APK assembly. A headless browser test checks the Android-mode UI. It uploads the testing APK
 and checksum only after that job's checks pass. The separate Rust gate can expose existing upstream
 failures; inspect **both** jobs before distributing an artifact.
 The Rust gate checks out the upstream-pinned canonical font fixtures for Japanese settings and IME
 tests; these external test fixtures are not added to the APK or this repository.
-The APK check also verifies package ID, version **0.2.1-alpha** / code **12**, launcher name and icon.
+The APK check also verifies package ID, version **0.2.2-alpha** / code **13**, launcher name and icon.
 The upstream release is merged in full, including its CI changes; Android publishing stays separate.
 Touch regressions include real-finger box selection and both-end trim/extend with one-step undo,
 on phone and tablet layouts, repeated under the synthetic 4096-pixel WebGL limit.

@@ -1,6 +1,6 @@
 # Android public alpha release checklist
 
-0.2.1-alpha is a release **candidate**, not a claim that all Android devices work. The existing
+0.2.2-alpha is a release **candidate**, not a claim that all Android devices work. The existing
 debug APK workflow remains available for testing. Public releases use a separate persistent key.
 
 ## Signing setup (maintainer)
@@ -22,7 +22,7 @@ fingerprint in the signing step against your own keystore; retain that fingerpri
 1. Run **Android APK** on branch `android`, with `release_candidate` enabled.
 2. The APK/browser/JVM/lint checks AND the full Rust gate must pass before signing starts.
 3. The final job aligns, signs, verifies the non-debuggable APK and creates a **draft prerelease**
-   tagged `android-v0.2.1-alpha`, containing the APK and `SHA256SUMS.txt`. Nothing is auto-published.
+   tagged `android-v0.2.2-alpha`, containing the APK and `SHA256SUMS.txt`. Nothing is auto-published.
 4. Download the signed draft asset and complete the device checks below. Record device model,
    Android/WebView versions, results and any limitations in the release notes.
 5. Verify the repository and release will be publicly accessible; publish the draft only after
@@ -55,7 +55,7 @@ until tested with the specific old signing certificate. Later public releases mu
 
 ## Scope and honest limits
 
-This is an unofficial WebView/WASM alpha based on EffectCraft v0.18.0. Android 10+, OpenGL ES 3,
+This is an unofficial WebView/WASM alpha based on EffectCraft v0.21.1. Android 10+, OpenGL ES 3,
 and a recent System WebView are required. Start with small projects. Hardware video acceleration,
 background rendering and guaranteed recovery after process death are not promised. Many specialist
 editor dialogs are still desktop-oriented. Include these limits, source/licence links and backup
