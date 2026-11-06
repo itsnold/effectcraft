@@ -2426,10 +2426,6 @@ const SWEDISH: &[(&str, &str)] = &[
     ("(missing)", "(saknas)"),
     ("360 View Orientation", "Orientering för 360-vy"),
     ("3:2 Pulldown: {}", "3:2-pulldown: {}"),
-    (
-        "A clean-room, open-source compositor for motion graphics and visual effects: native on macOS, Windows and Linux, and in the browser. Part of the ArtCraft family of creative apps.",
-        "En clean room-utvecklad kompositör med öppen källkod för rörlig grafik och visuella effekter: inbyggd på macOS, Windows och Linux samt i webbläsaren. Del av ArtCraft-familjen av kreativa program.",
-    ),
     ("About EffectCraft", "Om EffectCraft"),
     ("About...", "Om..."),
     ("Active", "Aktiv"),
@@ -6077,10 +6073,6 @@ const POLISH: &[(&str, &str)] = &[
     ("(missing)", "(brak)"),
     ("360 View Orientation", "Orientacja widoku 360"),
     ("3:2 Pulldown: {}", "Pulldown 3:2: {}"),
-    (
-        "A clean-room, open-source compositor for motion graphics and visual effects: native on macOS, Windows and Linux, and in the browser. Part of the ArtCraft family of creative apps.",
-        "Kompozytor grafiki ruchomej i efektów wizualnych, open source i tworzony metodą clean-room: natywny w macOS, Windows i Linuksie oraz w przeglądarce. Część rodziny aplikacji twórczych ArtCraft.",
-    ),
     ("About EffectCraft", "O programie EffectCraft"),
     ("About...", "O programie..."),
     ("Active", "Aktywny"),
@@ -8909,10 +8901,6 @@ const FRENCH: &[(&str, &str)] = &[
     ("(missing)", "(manquant)"),
     ("360 View Orientation", "Orientation de la vue 360°"),
     ("3:2 Pulldown: {}", "Pulldown 3:2 : {}"),
-    (
-        "A clean-room, open-source compositor for motion graphics and visual effects: native on macOS, Windows and Linux, and in the browser. Part of the ArtCraft family of creative apps.",
-        "Un compositeur open source, développé en salle blanche, pour le motion design et les effets visuels : natif sur macOS, Windows et Linux, ainsi que dans le navigateur. Fait partie de la famille d’applications créatives ArtCraft.",
-    ),
     ("About EffectCraft", "À propos d’EffectCraft"),
     ("About...", "À propos..."),
     ("Active", "Actif"),
@@ -10454,7 +10442,8 @@ mod tests {
             &[("text_button", 2), ("search_field", 3), ("text_field", 3), ("dropdown", 2), ("dropdown_tip", 2), ("text_fit", 3), ("check_label", 1)];
         /// Literals that draw as they are: a brand, a value, a separator, a unit, and the kerning
         /// sample pair the Character panel shows.
-        const VERBATIM: &[&str] = &["EffectCraft", "32", "dB", "···", "×", "V/A"];
+        // EC is the Android fork's text badge, not a translatable interface label.
+        const VERBATIM: &[&str] = &["EffectCraft", "EC", "32", "dB", "···", "×", "V/A"];
 
         /// The top-level arguments of a call, given the text after its `(`. A call split over
         /// several lines is still one argument list, so this walks past newlines until the

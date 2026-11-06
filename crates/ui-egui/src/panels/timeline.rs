@@ -4875,7 +4875,7 @@ fn footer_bar(app: &mut EffectcraftApp, ui: &mut egui::Ui, g: &mut Rw) -> Rect {
     }
     if g.tl.phone {
         let fit = Rect::from_min_size(pos2(footer.min.x + 6.0, footer.min.y + 2.0), vec2((g.tl.left_w - 12.0).max(0.0), footer_h - 4.0));
-        if widgets::text_button(ui, fit, "Fit time", false, &t, egui::Id::unique("tl-phone-fit")).clicked() {
+        if widgets::text_button(ui, fit, crate::i18n::tr("Fit"), false, &t, egui::Id::unique("tl-phone-fit")).clicked() {
             g.tl.actions.push(("timeline.zoomFit".into(), json!({})));
         }
         app.auto.add("timeline.phoneFit", fit, "Zoom to Fit Comp");
