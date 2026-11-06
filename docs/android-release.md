@@ -1,7 +1,7 @@
 # Android public alpha release checklist
 
-0.2.2-alpha is a release **candidate**, not a claim that all Android devices work. The existing
-debug APK workflow remains available for testing. Public releases use a separate persistent key.
+0.2.2-alpha is a **public-alpha release**, not a claim that all Android devices work. The existing
+debug APK workflow remains available for development. Public releases use a separate persistent key.
 
 ## Signing setup (maintainer)
 
@@ -16,6 +16,17 @@ key/passwords in a commit, issue, artifact or chat. Configure these repository A
 
 The workflow does not generate a key or fall back to debug signing. Check the certificate SHA-256
 fingerprint in the signing step against your own keystore; retain that fingerprint for every update.
+
+The first release identity was created on **2026-11-07** and the four repository secrets configured.
+Its certificate SHA-256 is:
+
+```text
+CD:14:4E:25:C7:F8:1C:26:4C:2E:47:03:5C:4B:C4:F6:9F:35:20:54:09:57:80:9B:77:D2:AB:3D:4C:23:20:98
+```
+
+The encrypted keystore and verified encrypted recovery archive are stored outside the repository.
+**Off-device backup confirmation is still required before first publication.** Never recreate this
+identity for a later update or expose the recovery password in logs, artifacts or chat.
 
 ## Build and review
 

@@ -7,7 +7,7 @@ services; the editing engine and codecs are unchanged Rust.
 
 ## Requirements and installation
 
-- Android port **0.2.2-alpha candidate** includes upstream **EffectCraft v0.21.1**
+- Android **0.2.2-alpha** includes upstream **EffectCraft v0.21.1**
   (`df4cc0932803f6183151083a5dfdd175f9d0a4ca`). Android-specific presentation and gesture handling
   are integrated with the updated editor, including upstream's keyframe marquee hit-testing
   adapted to phone row heights. New upstream features are not all device-validated.
@@ -17,9 +17,12 @@ services; the editing engine and codecs are unchanged Rust.
   recommended; update it through the Play Store). WebAssembly and WebGL2 must be enabled.
 - Phones get a compact, single-panel workspace in portrait and landscape; tablets keep the docked
   workspace. Start with short, small projects (e.g. 720p).
-- In this fork's **Actions → Android APK**, select a successful run and download the `effectcraft-android-debug`
-  artifact. Unzip it and install `app-debug.apk`, allowing installation from that source if asked.
-  This is a sideloadable **debug-signed testing APK**, not a Play Store production release.
+- Public APKs are under [this fork's Releases](https://github.com/itsnold/effectcraft/releases/tag/android-v0.2.2-alpha).
+  Download `EffectCraft-Android-0.2.2-alpha.apk` directly from Assets and allow installation from
+  your browser/file manager. Public APKs use the permanent release key and are non-debuggable;
+  they are alpha releases, not Play Store builds or device-wide compatibility guarantees.
+- Developers can still download `effectcraft-android-debug` from successful **Actions → Android APK**
+  runs, unzip it and install `app-debug.apk`. These are separate debug-signed testing builds.
 - Version **0.1.2-alpha** uses the display name **EffectCraft** and the openly licensed unicorn
   app icon (`assets/app-icon/LICENSE.txt`). The package ID remains `io.github.itsnold.ecdroid`
   for compatibility with earlier ECDroid installs and their stored projects/preferences. Updating
@@ -41,8 +44,8 @@ backgrounds, contained focus and Back/Escape dismissal. All shortcut-bar buttons
 available again: swipe the bar horizontally for scale, navigation and modifier toggles, without
 opening **Tools** first. Undo/Redo follow the editing modes for quicker access.
 System file/save pickers remain native; tablets retain upstream's docked editor.
-Public distribution remains gated on persistent release signing and real-device acceptance;
-see [android-release.md](android-release.md). No public/stable status is implied by a debug artifact.
+Release signing and device acceptance are documented in [android-release.md](android-release.md).
+Public alphas and development debug artifacts are distinct; neither implies stable/production status.
 
 Version **0.1.9-alpha** makes **Menu** a complete browsable menu tree on phones: File, Edit,
 Composition, Layer, Effect, Animation, View, Window and Help, including submenus, search,
