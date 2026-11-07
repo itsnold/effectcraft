@@ -7,17 +7,19 @@ services; the editing engine and codecs are unchanged Rust.
 
 ## Requirements and installation
 
-- Android **0.2.2-alpha** includes upstream **EffectCraft v0.21.1**
-  (`df4cc0932803f6183151083a5dfdd175f9d0a4ca`). Android-specific presentation and gesture handling
-  are integrated with the updated editor, including upstream's keyframe marquee hit-testing
-  adapted to phone row heights. New upstream features are not all device-validated.
+- Android **0.2.3-alpha** source includes upstream **EffectCraft v0.22.0**
+  (`42e3c6a6c119d973aa59ab0437487ea6cae6a15d`). Android-specific presentation and gesture handling
+  are integrated with the updated editor, including upstream's unified layer/keyframe selection
+  box adapted to phone row heights and edge scrolling. New upstream features are not all device-validated.
   The phone workspace, touch/timeline controls, 4096-pixel WebGL fallback, package ID and
-  project storage are preserved; the APK version code increases to 13.
+  project storage are preserved; the APK version code increases to 14, with the same release signing key.
 - Android 10 (API 29) or newer, OpenGL ES 3, and a recent **Android System WebView** (Chromium 120+
   recommended; update it through the Play Store). WebAssembly and WebGL2 must be enabled.
 - Phones get a compact, single-panel workspace in portrait and landscape; tablets keep the docked
   workspace. Start with short, small projects (e.g. 720p).
 - Public APKs are under [this fork's Releases](https://github.com/itsnold/effectcraft/releases/tag/android-v0.2.2-alpha).
+  The published build is currently **0.2.2-alpha**, based on v0.21.1; the v0.22.0-based **0.2.3-alpha**
+  is prepared as a new signed candidate, without replacing the previous release.
   Download `EffectCraft-Android-0.2.2-alpha.apk` directly from Assets and allow installation from
   your browser/file manager. Public APKs use the permanent release key and are non-debuggable;
   they are alpha releases, not Play Store builds or device-wide compatibility guarantees.
@@ -212,14 +214,14 @@ including workers, fonts and licences. No native ABI library is needed: the same
 ARM64 and x86_64 devices with a compatible WebView.
 
 GitHub Actions builds from source on `android` pushes and manual dispatch. It verifies the workspace
-and lockfile target **0.21.1**, then runs the full upstream Rust gate separately (using nextest for
+and lockfile target **0.22.0**, then runs the full upstream Rust gate separately (using nextest for
 the dev-profile gate), Node gesture/browser-host tests, JVM export tests, the WASM build, Android lint
 and APK assembly. A headless browser test checks the Android-mode UI. It uploads the testing APK
 and checksum only after that job's checks pass. The separate Rust gate can expose existing upstream
 failures; inspect **both** jobs before distributing an artifact.
 The Rust gate checks out the upstream-pinned canonical font fixtures for Japanese settings and IME
 tests; these external test fixtures are not added to the APK or this repository.
-The APK check also verifies package ID, version **0.2.2-alpha** / code **13**, launcher name and icon.
+The APK check also verifies package ID, version **0.2.3-alpha** / code **14**, launcher name and icon.
 The upstream release is merged in full, including its CI changes; Android publishing stays separate.
 Touch regressions include real-finger box selection and both-end trim/extend with one-step undo,
 on phone and tablet layouts, repeated under the synthetic 4096-pixel WebGL limit.
