@@ -5,8 +5,10 @@
 //! ZIP, PIZ and DWAA) are decoded through the media pool as the renderer asks for them: the
 //! picture in each alpha interpretation, and the channels EXtractoR and Cryptomatte read. The
 //! hashes were taken before the picture and the channels started sharing one decode, so a change
-//! to how either is decoded must leave every bit as it was. Only bit-exact float steps are
-//! pinned (linear light, no `powf`), so the hashes hold on every platform; DWAA (whose decoder
+//! to how either is decoded must leave every bit as it was, apart from the sign of premultiplied
+//! RGB zero (`f32::max` may return either sign for equal zeros). Alpha and auxiliary channel bits
+//! stay exact, including Cryptomatte IDs. Only bit-exact float steps are pinned (linear light,
+//! no `powf`), so the hashes hold on every platform; DWAA (whose decoder
 //! uses `powf`) and the sRGB / gamma 2.4 curves are checked for agreement between the two ways a
 //! frame can be decoded instead. Re-pin with `EXR_GOLDEN_PRINT=1` after an intended change.
 
@@ -275,9 +277,36 @@ fn fnv(words: impl IntoIterator<Item = u32>) -> u64 {
     h
 }
 
+/// Matte removal clamps premultiplied colour with `max(0.0)`, which need not preserve a zero's
+/// sign. Normalize only those RGB zeros: no tolerance for other samples, alpha or channel IDs.
+fn picture_bits(pixel: [f32; 4], mode: AlphaMode) -> [u32; 4] {
+    let mut bits = pixel.map(f32::to_bits);
+    if mode == AlphaMode::Premultiplied {
+        for word in bits.iter_mut().take(3) {
+            if *word == (-0.0_f32).to_bits() {
+                *word = 0;
+            }
+        }
+    }
+    bits
+}
+
+#[test]
+fn premultiplied_picture_hash_normalizes_only_rgb_zero_signs() {
+    let positive = [0.0, 0.0, 0.0, -0.0];
+    let signed = [-0.0, 0.0, -0.0, -0.0];
+    assert_ne!(fnv(positive.map(f32::to_bits)), fnv(signed.map(f32::to_bits)), "raw hashes distinguish equal colour zeros");
+    assert_eq!(picture_bits(signed, AlphaMode::Premultiplied), positive.map(f32::to_bits));
+    for mode in [AlphaMode::Straight, AlphaMode::Ignore] {
+        assert_eq!(picture_bits(signed, mode), signed.map(f32::to_bits), "other interpretations remain bit-exact");
+    }
+    let exact = [-f32::MIN_POSITIVE, f32::from_bits(0x7fc0_1234), 1.0, -0.0];
+    assert_eq!(picture_bits(exact, AlphaMode::Premultiplied), exact.map(f32::to_bits), "non-zero RGB, NaN payloads and alpha are untouched");
+}
+
 fn picture_hash(pool: &MediaPool, f: &Footage, float: FloatCurve, size: Option<(u32, u32)>) -> u64 {
     let img = pool.frame_with(ItemId(1), f, Tick::ZERO, size, float).expect("picture");
-    fnv([img.width, img.height].into_iter().chain(img.data.iter().flat_map(|p| p.map(f32::to_bits))))
+    fnv([img.width, img.height].into_iter().chain(img.data.iter().flat_map(|p| picture_bits(*p, f.alpha))))
 }
 
 fn aux_hash(pool: &MediaPool, f: &Footage) -> u64 {
