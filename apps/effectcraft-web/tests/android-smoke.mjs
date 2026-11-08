@@ -402,10 +402,13 @@ async function checkPanelDragAndBox(phone) {
     .filter(e=>/^project\.item\.\d+$/.test(e.id) && e.rect[1]>=list[1] && e.rect[1]+e.rect[3]<list[1]+list[3]-10);
   assert(rows.length>=2,'multiple project rows leave empty space for a marquee');
   const first = rows.reduce((a,b)=>a.rect[1]<b.rect[1]?a:b);
-  const empty = await point(list,0.6,0.97);
+  // Keep clear of the enlarged horizontal scrollbar hit zone at the list bottom.
+  const emptyY = list[1]+list[3]-32;
+  assert(rows.every(e=>e.rect[1]+e.rect[3]<emptyY-10),'marquee starts below occupied rows and above the scrollbar');
+  const empty = await point([list[0],emptyY,list[2],1],0.6);
   await drag(empty,await point(first.rect,0.3));
   const selected = await selection();
-  assert(rows.every(e=>selected.includes(Number(e.id.split('.').pop()))),'held empty-space marquee selects Project rows');
+  assert(rows.every(e=>selected.includes(Number(e.id.split('.').pop()))),`held empty-space marquee selects Project rows: ${JSON.stringify({phone,selected,rows,empty})}`);
   await js("effectcraft.execute('project.select',{items:[]})");
   const boxLabel = 'Toggle box selection: drag from empty timeline or project space';
   const box = () => js(`document.querySelector('#touch-bar button[aria-label="${boxLabel}"]').click()`);
@@ -438,6 +441,10 @@ async function checkPanelDragAndBox(phone) {
   assert(JSON.stringify(modified).includes('Gaussian Blur'),'the dropped effect is on that layer');
   await js("effectcraft.execute('edit.undo')");
   assert.deepEqual(await tree(),unmodified,'effect drop is a single undoable edit');
+  // Drop completion is not a click outside the search field. Dismiss its text agent
+  // before resizing: mobile Chromium may otherwise zoom to its stale desktop IME rect.
+  const outside = await point((await element('viewer.area')).rect,0.1,0.1);
+  await touch('touchStart',[outside]); await touch('touchEnd',[]); await pause(200);
   await writeFile(join(out,phone?'phone-panel-drag.png':'tablet-panel-drag.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
   return {projectBox:true,explicitBox:true,safeSwipe:true,projectDrop:true,effectDrop:true,effectUndo:true};
 }
@@ -617,12 +624,14 @@ try {
   const phoneRuler = (await js("effectcraft.request('ui.elements',{prefix:'timeline.ruler'})"))[0];
   assert(phoneRuler.rect[2] > 180, "compact outline leaves useful space for time bars");
   await writeFile(join(out, "phone-portrait.png"), Buffer.from((await send("Page.captureScreenshot", { format: "png" })).data, "base64"));
-  for (const [label, panel] of [["Media", "Project"], ["Effects", "EffectsPresets"], ["Preview", "Composition"]]) {
+   for (const [label, panel] of [["Media", "Project"], ["Effects", "EffectsPresets"], ["Preview", "Composition"]]) {
     await js(`document.querySelector('#phone-nav button[aria-label=${label}]').click()`);
     await until(`effectcraft.touchLayout()?.phonePanel==='${panel}'`);
-    assert((await js(`effectcraft.request('ui.elements',{prefix:'panel.${panel}'})`)).length > 0, `${label} tab shows its panel`);
-  }
-  await send("Emulation.setDeviceMetricsOverride", { width: 844, height: 390, deviceScaleFactor: 1, mobile: true });
+     assert((await js(`effectcraft.request('ui.elements',{prefix:'panel.${panel}'})`)).length > 0, `${label} tab shows its panel`);
+   }
+   report.phonePanelDrag = await checkPanelDragAndBox(true);
+   await js("effectcraft.request('ui.set',{phonePanel:'Composition'})");
+   await send("Emulation.setDeviceMetricsOverride", { width: 844, height: 390, deviceScaleFactor: 1, mobile: true });
   await pause(300);
   assert.equal(await js("effectcraft.touchLayout()?.phonePanel"), "Composition", "phone layout survives landscape rotation");
   await js("document.querySelector('#phone-nav button[aria-label=Timeline]').click()");
@@ -640,9 +649,6 @@ try {
   assert.equal(restoredUi.maximized, tabletUi.maximized);
    report.phonePanelsAndRotation = true;
    report.tabletPanelDrag = await checkPanelDragAndBox(false);
-   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
-   await until('effectcraft.touchLayout()?.phonePanel!==null');
-   report.phonePanelDrag = await checkPanelDragAndBox(true);
   assert.equal(errors.length, 0, JSON.stringify(errors));
   console.log("Android-mode editor: startup, storage, touch bar, long press, pinch, save bridge and resize passed");
 } catch (error) {
@@ -650,7 +656,8 @@ try {
   report.chromeStderr = stderr;
   console.error(report.error);
   if (ws?.readyState === WebSocket.OPEN) {
-    try { report.lastTouchLayout = await js('effectcraft.touchLayout()'); } catch {}
+     try { report.lastTouchLayout = await js('effectcraft.touchLayout()'); } catch {}
+     try { report.lastViewport = await js('(()=>{const c=document.querySelector("canvas"),r=c.getBoundingClientRect();return {innerWidth,innerHeight,dpr:devicePixelRatio,canvas:[c.width,c.height],rect:[r.x,r.y,r.width,r.height],visual:{scale:visualViewport?.scale,width:visualViewport?.width,height:visualViewport?.height}}})()'); } catch {}
     try { await writeFile(join(out, "failure.png"), Buffer.from((await send("Page.captureScreenshot", { format: "png" })).data, "base64")); } catch {}
   }
   process.exitCode = 1;
