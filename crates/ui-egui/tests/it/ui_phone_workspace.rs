@@ -121,6 +121,18 @@ fn phone_position_numbers_stay_visible_and_register_for_touch_scrubbing() {
     assert!(!targets.hold_drags.is_empty(), "layer names and bars support hold-to-drag");
     set(h.state_mut(), json!({"phonePanel": "Project"}));
     h.run_steps(3);
+    let preview = h.state().auto.find("phone.preview").unwrap().rect;
+    let targets = effectcraft_ui_egui::touch_targets::current(&h.ctx);
+    assert!(
+        targets
+            .scrubs
+            .iter()
+            .all(|r| r[0] >= preview[0] && r[1] >= preview[1] && r[0] + r[2] <= preview[0] + preview[2] && r[1] + r[3] <= preview[1] + preview[3]),
+        "only the live preview may register numeric targets after leaving the timeline"
+    );
+    assert!(!targets.hold_drags.is_empty(), "visible Project item names register hold-drag targets");
+    set(h.state_mut(), json!({"phonePreview": false}));
+    h.run_steps(3);
     assert!(effectcraft_ui_egui::touch_targets::current(&h.ctx).scrubs.is_empty(), "targets from hidden panels cannot leak into another frame");
 }
 

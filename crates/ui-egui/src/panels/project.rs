@@ -1350,14 +1350,13 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
         let problem = app.session.footage.item_problem(it).or_else(|| effectcraft_engine::render::missing_item_problem(it));
         let name_clip =
             Rect::from_min_max(pos2(x0 + 30.0, r.min.y), pos2(r.min.x + name_w + 4.0 - if problem.is_some() { 16.0 } else { 0.0 }, r.max.y)).intersect(list);
-        if editing.is_none() {
-            crate::touch_targets::hold_drag(ui, name_clip);
-        }
         if let Some(why) = &problem {
             problem_marker(app, ui, &g, name_w, it.id, why);
         }
         let name_rect = Rect::from_min_max(pos2(x0 + 28.0, r.min.y + 2.0), pos2(r.min.x + name_w + 2.0, r.max.y - 2.0));
         if !cell_edit(app, ui, &mut actions, &editing, id.0, "name", name_rect) {
+            // A renaming text field owns its gestures; only painted item names drag.
+            crate::touch_targets::hold_drag(ui, name_clip);
             // The selected item's name sits in a light cell with dark text.
             if selected {
                 let g = lp.layout_no_wrap(it.name.clone(), Tokens::ui(12.0), Color32::BLACK);
