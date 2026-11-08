@@ -8,17 +8,13 @@ by the ArtCraft Team. It bundles the Rust editor as WebAssembly inside a local A
 with Android file import/export and touch-adapted controls. It is not affiliated with or endorsed
 by upstream.
 
-**Source update: Android 0.2.3-alpha · EffectCraft v0.22.0 · Android 10+**
+**Android 0.2.3-alpha · EffectCraft v0.22.0 · Android 10+**
 
 ## Download and install
 
-**[Android release and APK download](https://github.com/itsnold/effectcraft/releases/tag/android-v0.2.2-alpha)**
+**[Android release and APK download](https://github.com/itsnold/effectcraft/releases/tag/android-v0.2.3-alpha)**
 
-The current published APK is **0.2.2-alpha** (EffectCraft v0.21.1). The **v0.22.0** update is being
-prepared as a signed **0.2.3-alpha** APK; it will appear under [Releases](https://github.com/itsnold/effectcraft/releases)
-after validation and review. The download above stays on the existing public APK until then.
-
-1. Open the release above and download **`EffectCraft-Android-0.2.2-alpha.apk`** from **Assets**.
+1. Open the release above and download **`EffectCraft-Android-0.2.3-alpha.apk`** from **Assets**.
 2. Allow installation from your browser or file manager when Android asks, then install the APK.
 3. Open **EffectCraft**. The editor is bundled in the APK; normal editing does not require a server
    or an internet connection.
