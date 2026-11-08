@@ -375,9 +375,9 @@ async function checkPanelDragAndBox(phone) {
     await pause(200);
   };
   const element = async (id) => {
-    const e = (await js(`effectcraft.request('ui.elements',{prefix:${JSON.stringify(id)}})`)).find(e => e.id === id);
-    assert(e && e.rect[2] > 0 && e.rect[3] > 0, `${id} is visible`);
-    return e;
+    // Control replies can precede painting. Software WebGL frames can take longer
+    // than 200ms; read geometry only after the requested widget actually appears.
+    return until(`effectcraft.request('ui.elements',{prefix:${JSON.stringify(id)}}).then(es=>es.find(e=>e.id===${JSON.stringify(id)}&&e.rect[2]>0&&e.rect[3]>0))`);
   };
   const point = async (rect, fx = 0.5, fy = 0.5) => {
     const ratio = await js('effectcraft.inspect().then(i=>i.pixelsPerPoint/devicePixelRatio)');
@@ -430,9 +430,7 @@ async function checkPanelDragAndBox(phone) {
   await touch('touchStart',[search]); await touch('touchEnd',[]); await pause(100);
   await js("effectcraft.request('ui.key',{key:'A',ctrl:true,command:true})");
   await send('Input.insertText',{text:'Gaussian Blur'}); await pause(250);
-  const effect = (await js("effectcraft.request('ui.elements',{prefix:'effects.item.'})"))
-    .find(e=>e.label==='Gaussian Blur' && !e.id.endsWith('.star'));
-  assert(effect,'search exposes a real effect row');
+  const effect = await until("effectcraft.request('ui.elements',{prefix:'effects.item.'}).then(es=>es.find(e=>e.label==='Gaussian Blur'&&!e.id.endsWith('.star')&&e.rect[2]>0&&e.rect[3]>0))");
   const tree = () => js(`effectcraft.execute('layer.tree',{layer:${layer}})`);
   const unmodified = await tree();
   await drag(await point(effect.rect,0.35),await point((await element('viewer.comp')).rect));
@@ -446,9 +444,10 @@ async function checkPanelDragAndBox(phone) {
   const outside = await point((await element('viewer.area')).rect,0.1,0.1);
   await touch('touchStart',[outside]); await touch('touchEnd',[]); await pause(200);
   await writeFile(join(out,phone?'phone-panel-drag.png':'tablet-panel-drag.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+  console.log(`${phone?'Phone':'Tablet'}: real-touch Project box, safe swipe, item drop, effect drop and undo passed`);
   return {projectBox:true,explicitBox:true,safeSwipe:true,projectDrop:true,effectDrop:true,effectUndo:true};
 }
-const deadline = setTimeout(() => { console.error("Android smoke test exceeded 5 minutes"); chrome.kill(); process.exit(1); }, 300000);
+const deadline = setTimeout(() => { console.error("Android smoke test exceeded 10 minutes"); chrome.kill(); process.exit(1); }, 600000);
 try {
   let page;
   for (let i = 0; i < 100 && !page; i++) {
