@@ -1350,6 +1350,9 @@ pub fn show(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
         let problem = app.session.footage.item_problem(it).or_else(|| effectcraft_engine::render::missing_item_problem(it));
         let name_clip =
             Rect::from_min_max(pos2(x0 + 30.0, r.min.y), pos2(r.min.x + name_w + 4.0 - if problem.is_some() { 16.0 } else { 0.0 }, r.max.y)).intersect(list);
+        if editing.is_none() {
+            crate::touch_targets::hold_drag(ui, name_clip);
+        }
         if let Some(why) = &problem {
             problem_marker(app, ui, &g, name_w, it.id, why);
         }

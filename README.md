@@ -10,6 +10,10 @@ by upstream.
 
 **Android 0.2.3-alpha · EffectCraft v0.22.0 · Android 10+**
 
+The next Android update is being prepared as **0.22.0-android.0.2.4-alpha**: the first part is
+the upstream EffectCraft version; the suffix identifies this fork's Android alpha version. The
+published download below stays on 0.2.3-alpha until the new build has passed release checks.
+
 ## Download and install
 
 **[Android release and APK download](https://github.com/itsnold/effectcraft/releases/tag/android-v0.2.3-alpha)**
@@ -74,6 +78,7 @@ and specialist tools retain desktop-oriented layouts; not every upstream feature
 | Pinch | Zoom the viewer or timeline, depending on the region. |
 | **Trim** | Drag near either end of a layer bar without holding first. |
 | **Box select** | Drag empty outline space for layers, or empty time space for keys. |
+| Project / Effects | Hold an item or effect name, then drag it onto the live composition preview; a quick swipe scrolls. Use **Box select** from empty Project list space to select items. |
 | **Actions** | Edit the selected layers/keys, including precision timing and easing. |
 | **Done** | Leave a special editing mode. |
 | **Back** | Dismiss an overlay/edit first; otherwise show the exit/save choice. |

@@ -78,7 +78,7 @@ fn phone_preview_switch_and_landscape_do_not_change_the_dock() {
         s.execute("comp.new", json!({"width": 64, "height": 36, "duration": 2})).unwrap();
         let mut h = Harness::builder().with_size(size).build_eframe(|_| EffectcraftApp::new(s));
         let original = serde_json::to_value(&h.state().ui.dock).unwrap();
-        for panel in ["Timeline", "Properties", "EffectControls"] {
+        for panel in ["Timeline", "Properties", "EffectControls", "Project", "EffectsPresets", "MediaBrowser"] {
             set(h.state_mut(), json!({"phonePanel": panel, "phonePreview": true}));
             h.run_steps(3);
             if size.y >= 390.0 || size.x > 600.0 {

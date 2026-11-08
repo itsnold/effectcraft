@@ -345,7 +345,7 @@ export function installTouchBar(canvas, { modifiers, controls }) {
     controls.mode = modes[(modes.indexOf(controls.mode) + 1) % modes.length];
     updateModes();
   });
-  const box = button("Box select", "Toggle timeline box selection: drag from empty space", () => {
+  const box = button("Box select", "Toggle box selection: drag from empty timeline or project space", () => {
     controls.mode = controls.mode === "box" ? "auto" : "box";
     updateModes();
   });

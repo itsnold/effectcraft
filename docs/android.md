@@ -39,6 +39,14 @@ services; the editing engine and codecs are unchanged Rust.
 
 ## Touch controls
 
+The **0.22.0-android.0.2.4-alpha** candidate adds hold-and-drag for Project items, Effects &
+Presets and supported Media Browser files. On phones, those panels show a resizable Composition
+preview as a drop target when space permits; enable the live preview if you hid it. Hold an item
+name until the feedback, then keep your finger down and drag onto the preview. In Project, start
+**Box select** on empty list space to select items; fast swipes continue to scroll. Short windows
+that cannot fit both panels can use the Tablet layout to arrange panels. Some other specialist
+panels do not yet advertise touch drag targets.
+
 Version **0.2.1-alpha** retains the refreshed phone and tablet controls with a shared dark palette, rounded
 surfaces, explicit focus/selection states and labelled precision fields. Menus/actions are normal
 dialogs, distinct from error alerts: phone bottom sheets and tablet centred dialogs have modal
@@ -221,7 +229,7 @@ and checksum only after that job's checks pass. The separate Rust gate can expos
 failures; inspect **both** jobs before distributing an artifact.
 The Rust gate checks out the upstream-pinned canonical font fixtures for Japanese settings and IME
 tests; these external test fixtures are not added to the APK or this repository.
-The APK check also verifies package ID, version **0.2.3-alpha** / code **14**, launcher name and icon.
+The APK check also verifies package ID, version **0.22.0-android.0.2.4-alpha** / code **15**, launcher name and icon.
 The upstream release is merged in full, including its CI changes; Android publishing stays separate.
 Touch regressions include real-finger box selection and both-end trim/extend with one-step undo,
 on phone and tablet layouts, repeated under the synthetic 4096-pixel WebGL limit.

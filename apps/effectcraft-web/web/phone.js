@@ -264,7 +264,7 @@ export function installPhoneWorkspace(api) {
   window.addEventListener("resize", refresh);
   const modeHint = () => {
     const mode = document.getElementById("touch-bar")?.dataset.mode;
-    if (controller.enabled && controller.panel === "Timeline" && ["box", "trim"].includes(mode))
+    if (controller.enabled && ((mode === "box" && ["Timeline", "Project"].includes(controller.panel)) || (mode === "trim" && controller.panel === "Timeline")))
       hint.textContent = mode === "box" ? "BOX SELECT · Start on empty space · Done to finish" : "TRIMMING · Drag either clip edge · Done to finish";
   };
   window.addEventListener("effectcraft-touch-mode", modeHint);

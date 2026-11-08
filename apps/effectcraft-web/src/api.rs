@@ -53,8 +53,13 @@ pub(crate) fn set_touch_layout(app: &effectcraft_ui_egui::EffectcraftApp, ctx: &
         .collect();
     let control_tracks: Vec<_> =
         app.auto.elements.iter().filter(|e| matches!(e.id.as_str(), "timeline.zoomSlider" | "timeline.navigator")).map(|e| e.rect).collect();
-    let marquees: Vec<_> =
-        app.auto.elements.iter().filter(|e| matches!(e.id.as_str(), "timeline.layerMarquee" | "timeline.keyMarquee")).map(|e| e.rect).collect();
+    let marquees: Vec<_> = app
+        .auto
+        .elements
+        .iter()
+        .filter(|e| matches!(e.id.as_str(), "timeline.layerMarquee" | "timeline.keyMarquee" | "project.empty"))
+        .map(|e| e.rect)
+        .collect();
     let marquee_blocks: Vec<_> = app
         .auto
         .elements
@@ -64,6 +69,7 @@ pub(crate) fn set_touch_layout(app: &effectcraft_ui_egui::EffectcraftApp, ctx: &
                 || e.id.starts_with("timeline.prop.")
                 || e.id.starts_with("timeline.group.")
                 || e.id.starts_with("timeline.key.")
+                || (e.id.starts_with("project.item.") && e.id.strip_prefix("project.item.").is_some_and(|id| id.parse::<u64>().is_ok()))
         })
         .map(|e| {
             let mut rect = e.rect;

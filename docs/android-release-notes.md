@@ -1,4 +1,4 @@
-# EffectCraft Android 0.2.3-alpha
+# EffectCraft 0.22.0 — Android 0.2.4-alpha
 
 Update to the **unofficial Android fork**, based on EffectCraft v0.22.0.
 This is the Android-compatible EffectCraft editor, not an official ArtCraft Android release.
@@ -13,6 +13,10 @@ This is the Android-compatible EffectCraft editor, not an official ArtCraft Andr
   adapter-aware 4096-pixel WebGL fallback. New upstream features are not all device-validated.
 - Unified timeline box selection can span the layer list and keyframe area, with phone row heights
   and horizontal edge scrolling retained.
+- Hold and drag Project items, Effects & Presets entries, and supported Media Browser files; a
+  quick swipe still scrolls. Box select also works from empty Project list space.
+- On phones the Project, Effects and Media Browser panels can share the screen with the Composition
+  viewer, so a drag has a visible drop target. Hide or resize the preview when more room is needed.
 - Upstream preview/cache, compositing, file-format and editing improvements. Android remains a
   WebView/WASM build; native out-of-process effect helpers are not available on Android.
 - Browsable File/Edit/Composition/Layer/Effect/Animation/View/Window/Help menus on phones.
@@ -20,13 +24,13 @@ This is the Android-compatible EffectCraft editor, not an official ArtCraft Andr
 
 ## Install and back up first
 
-Download `EffectCraft-Android-0.2.3-alpha.apk` and allow installation from your browser/file manager.
+Download `EffectCraft-0.22.0-android.0.2.4-alpha.apk` and allow installation from your browser/file manager.
 Check its SHA-256 against `SHA256SUMS.txt`. Requires Android 10+, OpenGL ES 3 and a recent Android
 System WebView. This is not a Play Store release.
 
 This APK is a **non-debuggable release build**, signed with the fork's permanent release key.
 It is not the debug-signed APK from Actions. The package remains `io.github.itsnold.ecdroid`,
-version code **14**. It retains the certificate used for the public 0.2.2-alpha APK, so Android can
+version code **15**. It retains the certificate used for previous public APKs, so Android can
 accept it as an in-place update without uninstalling. Keep external project/media backups anyway.
 
 Signing certificate SHA-256 (not the APK checksum):
@@ -53,7 +57,7 @@ Android-version and WebView-version matrix has **not yet been recorded**, so thi
 community alpha, not a certification of every phone or tablet. There is no measured RAM/chipset
 minimum. Begin with short 720p projects and back up project files and source media externally.
 
-The v0.22.0-based build must pass APK/browser validation, the full Rust quality gate and
+The updated build must pass APK/browser validation, the full Rust quality gate and
 signature/non-debuggable checks before publication. Results will be linked on this release.
 Release-signed installation, recovery and device-specific acceptance remain tracked in
 [the release checklist](https://github.com/itsnold/effectcraft/blob/android/docs/android-release.md).

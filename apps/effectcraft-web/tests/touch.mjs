@@ -179,6 +179,18 @@ assert.equal(touchTarget(p(150, 130), editingLayout, bounds, 2).policy, "hold-dr
 assert.equal(touchTarget(p(80, 130), { ...editingLayout, overlay: true }, bounds, 2).policy, "scrub", "modal numeric widgets remain usable");
 assert.equal(touchTarget(p(150, 130), { ...editingLayout, overlay: true }, bounds, 2).policy, "auto", "dialogs block held layers underneath");
 assert.equal(touchTarget(p(80, 130), editingLayout, bounds, 2, "scroll").policy, "scroll", "Scroll explicitly overrides numeric scrubbing");
+// Project rows and Effects/Media Browser entries advertise only genuine drag targets.
+const projectLayout = { pixelsPerPoint: 2, scrolls: [[0, 0, 300, 400]], marquees: [[0, 50, 300, 300]],
+  marqueeBlocks: [[0, 80, 300, 25]], holdDrags: [[35, 80, 180, 25]] };
+const projectBounds = { left: 0, top: 0 };
+assert.equal(touchTarget(p(80, 90), projectLayout, projectBounds, 2).policy, 'hold-drag', 'hold a project row to drag an item');
+assert.equal(touchTarget(p(80, 90), projectLayout, projectBounds, 2, 'box').policy, 'scroll', 'box mode must not drag occupied rows');
+assert.equal(touchTarget(p(20, 150), projectLayout, projectBounds, 2, 'box').policy, 'drag', 'project empty space starts box selection');
+assert.equal(touchTarget(p(20, 150), projectLayout, projectBounds, 2).policy, 'hold-drag', 'hold empty project space for a marquee');
+assert.equal(touchTarget(p(80, 90), { ...projectLayout, overlay: true }, projectBounds, 2).policy, 'auto', 'dialogs block project drag targets');
+const effectLayout = { pixelsPerPoint: 2, scrolls: [[0, 0, 300, 400]], holdDrags: [[20, 100, 200, 24]] };
+assert.equal(touchTarget(p(100, 110), effectLayout, projectBounds, 2).policy, 'hold-drag', 'effects and media entries arm drag');
+assert.equal(touchTarget(p(250, 110), effectLayout, projectBounds, 2).policy, 'scroll', 'non-drag controls retain safe scrolling');
 for (const [end, expected] of [[p(160, 201), "down"], [p(101, 140), "wheel"]]) {
   gesture.down(1, p(100, 200), "scrub"); gesture.move(1, end); gesture.up(1, end);
   const scrubbed = events.splice(0);

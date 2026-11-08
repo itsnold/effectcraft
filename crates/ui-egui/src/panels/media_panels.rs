@@ -187,6 +187,9 @@ pub fn media_browser(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
             continue;
         }
         let resp = ui.interact(r.intersect(list), egui::Id::unique(("mb-entry", &e.path)), Sense::click_and_drag());
+        if !e.is_dir && e.kind.is_some() {
+            crate::touch_targets::hold_drag(ui, r.intersect(list));
+        }
         app.auto.add(&format!("mediaBrowser.entry.{}", e.name), r, &e.name);
         lp.rect_filled(r, 4.0, if resp.hovered() { t.hover } else { t.row });
         let thumb = Rect::from_min_max(r.min + vec2(6.0, 6.0), pos2(r.max.x - 6.0, r.max.y - 26.0));

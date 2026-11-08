@@ -533,7 +533,17 @@ impl EffectcraftApp {
         let Some(panel) = self.ui.phone_panel else { return false };
         let ctx = ui.ctx().clone();
         let t = self.tokens;
-        if !self.ui.phone_preview_hidden && matches!(panel, PanelKind::Timeline | PanelKind::Properties | PanelKind::EffectControls) {
+        if !self.ui.phone_preview_hidden
+            && matches!(
+                panel,
+                PanelKind::Timeline
+                    | PanelKind::Properties
+                    | PanelKind::EffectControls
+                    | PanelKind::Project
+                    | PanelKind::EffectsPresets
+                    | PanelKind::MediaBrowser
+            )
+        {
             let landscape = body.width() > body.height() * 1.35;
             let key = egui::Id::unique(("phone-preview-fraction", landscape));
             let fraction = ctx.data(|d| d.get_temp::<f32>(key)).filter(|v| v.is_finite()).unwrap_or(if landscape { 0.38 } else { 0.34 });

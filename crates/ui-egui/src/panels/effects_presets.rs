@@ -301,6 +301,7 @@ fn effect_row(
     }
     let star = Rect::from_center_size(pos2(r.max.x - 38.0, r.center().y), vec2(16.0, 16.0));
     let resp = ui.interact(r.intersect(list), id, if tab { Sense::click_and_drag() } else { Sense::CLICK | Sense::DRAG });
+    crate::touch_targets::hold_drag(ui, Rect::from_min_max(r.min, pos2(star.min.x.max(r.min.x), r.max.y)).intersect(list));
     if selected {
         lp.rect_filled(r, 0.0, t.row_selected);
     } else if resp.hovered() {
@@ -374,6 +375,7 @@ fn preset_row(
         return;
     }
     let resp = ui.interact(r.intersect(list), id, if tab { Sense::click_and_drag() } else { Sense::CLICK | Sense::DRAG });
+    crate::touch_targets::hold_drag(ui, r.intersect(list));
     if selected {
         lp.rect_filled(r, 0.0, t.row_selected);
     } else if resp.hovered() {

@@ -263,7 +263,7 @@ async function checkBoxAndTrim() {
   const point = (r, fx=.5, fy=.5) => ({x:bounds.x+(r[0]+r[2]*fx)*scale,y:bounds.y+(r[1]+r[3]*fy)*scale});
   const button = async title => { await js(`document.querySelector('#touch-bar button[aria-label=${JSON.stringify(title)}]').click()`); await pause(50); };
   const trimTitle = 'Toggle clip trimming: drag the left or right edge';
-  const boxTitle = 'Toggle timeline box selection: drag from empty space';
+  const boxTitle = 'Toggle box selection: drag from empty timeline or project space';
   const drag = async (a,b,hold=false,screenshot=null) => {
     await touch('touchStart',[a]); if (hold) await pause(650);
     assert(!(await js('effectcraft.touchLayout().overlay')), 'holding an edge or empty space must not open a context menu');
@@ -355,6 +355,91 @@ async function checkBoxAndTrim() {
   await js("effectcraft.execute('layer.select',{layers:['Sideways gesture guard']})");
   await revealEditingProperty((await js("effectcraft.execute('layer.tree',{depth:0})")).id,'transform/opacity');
   return {heldTrim:true,immediateTrim:true,bothEnds:true,undo:true,heldBox:true,keyBox:true,layerBox:true};
+}
+// Exercise the actual editor drag payloads through CDP finger input, not ui.drag or
+// effect.apply. Policy-only tests cannot catch missing/clipped widget registrations.
+async function checkPanelDragAndBox(phone) {
+  await js("effectcraft.execute('file.newProject')");
+  const source = (await js("effectcraft.execute('comp.new',{name:'00 Touch source',width:64,height:36,duration:2})")).comp;
+  await js("effectcraft.execute('layer.newSolid',{name:'Touch media',width:64,height:36,color:'#406080'})");
+  const target = (await js("effectcraft.execute('comp.new',{name:'01 Touch destination',width:64,height:36,duration:2})")).comp;
+  await js("effectcraft.execute('time.set',{frame:0})");
+  if (!phone) {
+    const maximized = (await js('effectcraft.inspect()')).ui.maximized;
+    if (maximized) await js(`effectcraft.request('ui.menu.invoke',{id:'window.maximizePanel',params:{panel:${JSON.stringify(maximized)}}})`);
+    await js("effectcraft.request('ui.set',{workspace:'Standard'})");
+  }
+  const show = async (panel) => {
+    await js(phone ? `effectcraft.request('ui.set',{phonePanel:'${panel}',phonePreview:true})`
+      : `effectcraft.request('ui.panel.show',{panel:'${panel}'})`);
+    await pause(200);
+  };
+  const element = async (id) => {
+    const e = (await js(`effectcraft.request('ui.elements',{prefix:${JSON.stringify(id)}})`)).find(e => e.id === id);
+    assert(e && e.rect[2] > 0 && e.rect[3] > 0, `${id} is visible`);
+    return e;
+  };
+  const point = async (rect, fx = 0.5, fy = 0.5) => {
+    const ratio = await js('effectcraft.inspect().then(i=>i.pixelsPerPoint/devicePixelRatio)');
+    const b = await js('(()=>{const r=document.querySelector("canvas").getBoundingClientRect();return {x:r.x,y:r.y}})()');
+    return {x:b.x+(rect[0]+rect[2]*fx)*ratio,y:b.y+(rect[1]+rect[3]*fy)*ratio};
+  };
+  const drag = async (a, b, hold = true) => {
+    await touch('touchStart',[a]);
+    if (hold) await pause(600);
+    for (let n=1;n<=12;n++) {
+      await touch('touchMove',[{x:a.x+(b.x-a.x)*n/12,y:a.y+(b.y-a.y)*n/12}]);
+      await pause(25);
+    }
+    await pause(80); await touch('touchEnd',[]); await pause(200);
+  };
+  const selection = () => js("effectcraft.execute('editor.state').then(s=>s.project_selection)");
+  const comp = () => js(`effectcraft.execute('comp.info',{comp:${target}})`);
+  await show('Project');
+  await js("effectcraft.execute('project.select',{items:[]})");
+  const list = (await element('project.empty')).rect;
+  const rows = (await js("effectcraft.request('ui.elements',{prefix:'project.item.'})"))
+    .filter(e=>/^project\.item\.\d+$/.test(e.id) && e.rect[1]>=list[1] && e.rect[1]+e.rect[3]<list[1]+list[3]-10);
+  assert(rows.length>=2,'multiple project rows leave empty space for a marquee');
+  const first = rows.reduce((a,b)=>a.rect[1]<b.rect[1]?a:b);
+  const empty = await point(list,0.6,0.97);
+  await drag(empty,await point(first.rect,0.3));
+  const selected = await selection();
+  assert(rows.every(e=>selected.includes(Number(e.id.split('.').pop()))),'held empty-space marquee selects Project rows');
+  await js("effectcraft.execute('project.select',{items:[]})");
+  const boxLabel = 'Toggle box selection: drag from empty timeline or project space';
+  const box = () => js(`document.querySelector('#touch-bar button[aria-label="${boxLabel}"]').click()`);
+  await box(); await drag(empty,await point(first.rect,0.3),false); await box();
+  assert((await selection()).length>=2,'explicit Box mode selects Project rows without a hold');
+  await js(`effectcraft.execute('project.select',{items:[${source}]})`);
+  const name = await element(`project.item.${source}.name`);
+  const from = await point(name.rect);
+  const before = await comp();
+  await drag(from,{x:from.x+2,y:from.y-60},false);
+  assert.deepEqual(await comp(),before,'quick swipe on a Project item does not create/reorder layers');
+  assert.deepEqual(await selection(),[source],'quick swipe does not change Project selection');
+  await drag(await point((await element(`project.item.${source}.name`)).rect),await point((await element('viewer.comp')).rect));
+  const after = await comp();
+  assert.equal(after.layers.length,before.layers.length+1,'holding a Project item and dragging to viewer creates a layer');
+  const layer = after.layers.find(l=>!before.layers.some(old=>old.id===l.id)).id;
+  await show('EffectsPresets');
+  const search = await point((await element('effects.search')).rect);
+  await touch('touchStart',[search]); await touch('touchEnd',[]); await pause(100);
+  await js("effectcraft.request('ui.key',{key:'A',ctrl:true,command:true})");
+  await send('Input.insertText',{text:'Gaussian Blur'}); await pause(250);
+  const effect = (await js("effectcraft.request('ui.elements',{prefix:'effects.item.'})"))
+    .find(e=>e.label==='Gaussian Blur' && !e.id.endsWith('.star'));
+  assert(effect,'search exposes a real effect row');
+  const tree = () => js(`effectcraft.execute('layer.tree',{layer:${layer}})`);
+  const unmodified = await tree();
+  await drag(await point(effect.rect,0.35),await point((await element('viewer.comp')).rect));
+  const modified = await tree();
+  assert.notDeepEqual(modified,unmodified,'held effect drag changes the layer under the drop');
+  assert(JSON.stringify(modified).includes('Gaussian Blur'),'the dropped effect is on that layer');
+  await js("effectcraft.execute('edit.undo')");
+  assert.deepEqual(await tree(),unmodified,'effect drop is a single undoable edit');
+  await writeFile(join(out,phone?'phone-panel-drag.png':'tablet-panel-drag.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+  return {projectBox:true,explicitBox:true,safeSwipe:true,projectDrop:true,effectDrop:true,effectUndo:true};
 }
 const deadline = setTimeout(() => { console.error("Android smoke test exceeded 5 minutes"); chrome.kill(); process.exit(1); }, 300000);
 try {
@@ -553,7 +638,11 @@ try {
   assert.deepEqual(restoredUi.dock, tabletUi.dock, "returning to tablet restores the original dock");
   assert.deepEqual(restoredUi.floating, tabletUi.floating);
   assert.equal(restoredUi.maximized, tabletUi.maximized);
-  report.phonePanelsAndRotation = true;
+   report.phonePanelsAndRotation = true;
+   report.tabletPanelDrag = await checkPanelDragAndBox(false);
+   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+   await until('effectcraft.touchLayout()?.phonePanel!==null');
+   report.phonePanelDrag = await checkPanelDragAndBox(true);
   assert.equal(errors.length, 0, JSON.stringify(errors));
   console.log("Android-mode editor: startup, storage, touch bar, long press, pinch, save bridge and resize passed");
 } catch (error) {
