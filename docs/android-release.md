@@ -1,6 +1,6 @@
 # Android public alpha release checklist
 
-0.2.3-alpha is the next **public-alpha candidate**, not a claim that all Android devices work. The existing
+0.22.0-android.0.2.4-alpha is the next **public-alpha candidate**, not a claim that all Android devices work. The existing
 debug APK workflow remains available for development. Public releases use a separate persistent key.
 
 ## Signing setup (maintainer)
@@ -33,7 +33,7 @@ identity for a later update or expose the recovery password in logs, artifacts o
 1. Run **Android APK** on branch `android`, with `release_candidate` enabled.
 2. The APK/browser/JVM/lint checks AND the full Rust gate must pass before signing starts.
 3. The final job aligns, signs, verifies the non-debuggable APK and creates a **draft prerelease**
-   tagged `android-v0.2.3-alpha`, containing the APK and `SHA256SUMS.txt`. Nothing is auto-published.
+   tagged `v0.22.0-android.0.2.4-alpha`, containing the APK and `SHA256SUMS.txt`. Nothing is auto-published.
 4. Download the signed draft asset and complete the device checks below. Record device model,
    Android/WebView versions, results and any limitations in the release notes.
 5. Verify the repository and release will be publicly accessible; publish the draft only after
