@@ -439,13 +439,56 @@ async function checkPanelDragAndBox(phone) {
   assert(JSON.stringify(modified).includes('Gaussian Blur'),'the dropped effect is on that layer');
   await js("effectcraft.execute('edit.undo')");
   assert.deepEqual(await tree(),unmodified,'effect drop is a single undoable edit');
+  // Real pen input must reach the same editor paths without requiring a keyboard
+  // or the finger hold delay. The toolbar modifiers previously only affected touch.
+  const penInput = (type,p,buttons=0) => send('Input.dispatchMouseEvent',{
+    type,...p,button:type==='mouseMoved'?'none':'left',buttons,pointerType:'pen',
+    clickCount:type==='mouseMoved'?0:1,force:buttons?0.5:0,
+  });
+  const penDrag = async (a,b) => {
+    await penInput('mouseMoved',a);await penInput('mousePressed',a,1);
+    for(let n=1;n<=8;n++) {
+      await penInput('mouseMoved',{x:a.x+(b.x-a.x)*n/8,y:a.y+(b.y-a.y)*n/8},1);
+      await pause(35);
+    }
+    await penInput('mouseReleased',b);await pause(200);
+  };
+  const penTap = async id => {
+    const p=await point((await element(id)).rect);
+    await penInput('mouseMoved',p);await penInput('mousePressed',p,1);await penInput('mouseReleased',p);
+    await pause(150);
+  };
+  await show('Project');
+  await js("effectcraft.execute('project.select',{items:[]})");
+  await penTap(`project.item.${source}.name`);
+  assert.deepEqual(await selection(),[source],'pen tip selects a Project row');
+  const shift = "document.querySelector('#touch-bar button[aria-label=\"Toggle Shift for multi-select / modified drags\"]')";
+  await js(`${shift}.click()`);
+  await penTap(`project.item.${target}.name`);
+  await js(`${shift}.click()`);
+  assert.deepEqual((await selection()).sort((a,b)=>a-b),[source,target].sort((a,b)=>a-b),'on-screen Shift adds to pen selection without a keyboard');
+  await js(`effectcraft.execute('project.select',{items:[${source}]})`);
+  const penBefore=await comp();
+  await penDrag(await point((await element(`project.item.${source}.name`)).rect),await point((await element('viewer.comp')).rect));
+  const penAfter=await comp();
+  assert.equal(penAfter.layers.length,penBefore.layers.length+1,'pen drags a Project item to the viewer immediately');
+  const penLayer=penAfter.layers.find(l=>!penBefore.layers.some(old=>old.id===l.id)).id;
+  await show('EffectsPresets');
+  const penEffect=await element(effect.id);
+  const penTree=()=>js(`effectcraft.execute('layer.tree',{layer:${penLayer}})`);
+  const penUnmodified=await penTree();
+  await penDrag(await point(penEffect.rect,0.35),await point((await element('viewer.comp')).rect));
+  assert(JSON.stringify(await penTree()).includes('Gaussian Blur'),'pen drops an effect onto the layer under its tip');
+  await js("effectcraft.execute('edit.undo')");
+  assert.deepEqual(await penTree(),penUnmodified,'pen effect drop is one undoable edit');
   // Drop completion is not a click outside the search field. Dismiss its text agent
   // before resizing: mobile Chromium may otherwise zoom to its stale desktop IME rect.
   const outside = await point((await element('viewer.area')).rect,0.1,0.1);
   await touch('touchStart',[outside]); await touch('touchEnd',[]); await pause(200);
   await writeFile(join(out,phone?'phone-panel-drag.png':'tablet-panel-drag.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
-  console.log(`${phone?'Phone':'Tablet'}: real-touch Project box, safe swipe, item drop, effect drop and undo passed`);
-  return {projectBox:true,explicitBox:true,safeSwipe:true,projectDrop:true,effectDrop:true,effectUndo:true};
+  console.log(`${phone?'Phone':'Tablet'}: touch Project box/swipe/drop/undo and pen selection/Shift/drop/undo passed`);
+  return {projectBox:true,explicitBox:true,safeSwipe:true,projectDrop:true,effectDrop:true,effectUndo:true,
+    penSelect:true,penMultiSelect:true,penProjectDrop:true,penEffectDrop:true,penEffectUndo:true};
 }
 const deadline = setTimeout(() => { console.error("Android smoke test exceeded 10 minutes"); chrome.kill(); process.exit(1); }, 600000);
 try {

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { TouchGesture, transferAndroidBlob, touchTarget, applyAndroidDefaults } from "../web/touch.js";
+import { TouchGesture, PenGesture, transferAndroidBlob, touchTarget, applyAndroidDefaults } from "../web/touch.js";
 
 // Browser timers reject an arbitrary object as their receiver (Node timers do not).
 // Exercise the DEFAULT timer path, not just the injected fake scheduler below.
@@ -95,6 +95,47 @@ types(); gesture.cancelAll();
 gesture.down(1, p(NaN, 1));
 assert.equal(gesture.points.size, 0, "nonfinite coordinates ignored");
 console.log("touch: tap, hold, jitter, drag, pinch, pan, cancellation and multi-touch transition passed");
+
+gesture.down(1,p(10,10),'context');timer();
+assert.deepEqual(types(),[],'Options waits for release, without selecting or opening twice');
+gesture.up(1,p(10,10));
+assert.deepEqual(types(),[['move',0],['down',2],['up',2]],'Options offers a hardware-independent context click');
+gesture.down(1,p(10,10),'context');gesture.move(1,p(10,50));gesture.up(1,p(10,50));
+assert(!events.splice(0).some(e=>e.type==='down'),'swiping with Options armed cannot activate a row');
+
+const pen = new PenGesture(e=>events.push(e));
+pen.down(7,{...p(10,20),pressure:0.6,shiftKey:true});
+assert.deepEqual(types(),[['move',undefined],['down',0]],'pen presses immediately without a hold');
+pen.move(7,{...p(11,21),pressure:0.8,shiftKey:true});
+let stroke=events.splice(0);
+assert.equal(stroke[0].pressure,0.8);assert(stroke[0].shiftKey);
+pen.up(7,p(40,20));
+assert.deepEqual(types(),[['move',undefined],['up',0]],'pen delivers final coordinates and one release');
+pen.cancelAll();assert.deepEqual(types(),[],'cancel after release cannot release twice');
+pen.down(7,p(10,20),'scroll');pen.move(7,p(11,21));assert.deepEqual(types(),[]);
+pen.move(7,p(40,21));pen.move(7,p(45,80));pen.up(7,p(45,80));
+stroke=events.splice(0);
+assert(stroke.every(e=>e.type==='wheel'&&e.dy===0&&!e.zoom),'pen Scroll locks its initial axis without pressing');
+assert.equal(stroke[0].dx,-30);
+pen.down(7,p(10,20),'scroll');pen.up(7,p(10,20));
+assert.deepEqual(types(),[['move',undefined],['down',0],['up',0]],'pen taps still activate controls in Scroll mode');
+pen.down(7,p(10,20),'scroll');pen.up(7,p(10,60));
+assert(events.splice(0).every(e=>e.type==='wheel'),'coalesced Scroll release must not click');
+for(const policy of ['context','drag']) {
+  pen.down(7,p(10,20),policy,2);assert.deepEqual(types(),[],'barrel button does not left-click first');
+  pen.up(7,p(12,20));assert.deepEqual(types(),[['move',undefined],['down',2],['up',2]]);
+  pen.down(7,p(10,20),policy,2);pen.cancelAll();assert.deepEqual(types(),[],'cancelled barrel/Options cannot open a menu');
+}
+pen.down(7,p(10,20),'context');pen.move(7,p(30,20));pen.up(7,p(30,20));
+assert.deepEqual(types(),[],'a context drag is not a click');
+pen.down(7,p(10,20),'context');pen.move(7,p(30,20));pen.up(7,p(10,20));
+assert.deepEqual(types(),[],'returning a context drag to its origin is still not a tap');
+pen.down(7,p(10,20));types();pen.down(8,p(30,40));pen.up(8,p(30,40));
+assert.deepEqual(types(),[],'another pointer cannot release the active pen');
+pen.cancelAll();assert.deepEqual(types(),[['move',undefined],['up',0]]);
+pen.down(7,p(NaN,20));pen.down(7,p(10,20),'drag',5);
+assert.equal(pen.stroke,null,'invalid coordinates and unsupported erasers never edit');
+console.log('pen: immediate precision edits, scroll, context, modifiers/metadata, cancellation and unsupported buttons passed');
 
 const payload = Uint8Array.from({ length: 500000 }, (_, i) => i % 256);
 let chunks = [];

@@ -145,11 +145,40 @@ worker memory. WebView text/page zoom is disabled so it cannot magnify the canva
 In Auto, panel tabs and dividers still drag to move/resize. Use Drag for vertical editing
 gestures without a hold, such as reordering layer names or moving/retiming keys. In Auto, hold
 the target first, then drag it; ordinary swipes remain safe navigation.
-Mouse and pen input retain their native event path. Gesture movement locks to its initial scroll
+Mouse input retains its native event path. Pen input uses the precision path described below.
+Gesture movement locks to its initial scroll
 axis and originating panel, preventing accidental edits or scrolling a neighbouring panel. Rotate,
 app-switch, lost pointer capture and cancellation release active gestures and clear stale hover.
 Lifting one finger after a pinch cannot become an accidental
 click. Adding a second finger during an already-started drag ends that drag; it does not undo it.
+
+## Stylus controls
+
+Pen input is optional: no command requires a stylus, hover, pressure or a side button. All existing
+finger gestures, shortcut buttons, precision fields and menu actions remain available.
+
+- **Auto:** tap with the tip to select; drag immediately to edit, scrub numbers, reorder, draw a
+  selection box from empty space, or drop Project items/effects onto the preview. No finger-style
+  hold delay or expanded trim/scrollbar snapping is applied in Auto, preserving tip precision.
+- **Hover**, when supported by the pen/WebView, moves the editor pointer for tooltips and handle
+  targeting without selecting. **Hand** pans the composition; **Fit** resets it.
+- **Shift / Alt / Ctrl** in the shortcut bar also modify pen taps and drags. Shift adds Project
+  items to selection; tap the toggle again afterward. Physical keyboard modifiers still work.
+- **Scroll** makes pen drags scroll instead of editing. **Box select** and **Trim** use the same
+  guarded targets as touch, including accessible clip-edge targets in explicit Trim mode. Occupied
+  rows cannot accidentally move in Box select, and a clip's middle cannot move in Trim.
+- A reported **side/barrel right button** opens the target's context menu on release without an
+  initial left click. Without that button, tap **Options**, then tap the target with a pen **or
+  finger**. Options is one-shot; tap it again to disarm. Moving instead of tapping does not open
+  a context menu. Finger hold-and-release remains available too.
+- During pen contact, new canvas touches are ignored until lifted; existing finger gestures are
+  ended when the pen takes over. This limits accidental palm edits, but is **not hardware palm
+  rejection**: hover alone does not suppress fingers, and touches before pen contact may act.
+  Toolbar buttons remain usable. App switching, rotation and lost capture release the pen state.
+
+The editor currently consumes pen position and buttons, not pressure-sensitive brush width,
+tilt-controlled painting or eraser-end tools. Unsupported eraser button events do not delete work.
+Browser input regressions are not a substitute for testing a physical stylus and Android WebView.
 
 ## Phone workspace
 

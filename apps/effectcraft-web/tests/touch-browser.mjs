@@ -158,13 +158,87 @@ try {
  await touch("touchStart",[{x:300,y:300}]);await touch("touchMove",[{x:300,y:250}]);
  await js("dispatchEvent(new Event('blur'))");await touch("touchEnd",[]);events=await js("events.splice(0)");
  assert.equal(events.filter(e=>e.type==='pointerup').length,1,"blur releases a drag exactly once");
- // Native mouse and pen do not take the touch path.
+ // Native mouse remains untouched; pen shares the on-screen editing modifiers.
  for(const pointerType of ['mouse','pen']) {
   await send("Input.dispatchMouseEvent",{type:'mousePressed',x:100,y:100,button:'left',clickCount:1,pointerType});
   await send("Input.dispatchMouseEvent",{type:'mouseReleased',x:100,y:100,button:'left',clickCount:1,pointerType});
  }
- events=await js("events.splice(0)");assert(events.some(e=>e.type==='pointerdown'&&e.pointerType==='pen'&&e.trusted));
+ events=await js("events.splice(0)");assert(events.some(e=>e.type==='pointerdown'&&e.pointerType==='pen'));
  assert(events.some(e=>e.type==='pointerdown'&&e.pointerType==='mouse'&&e.trusted));
+ console.log('touch browser: finger gestures and native mouse passed; checking pen input');
+ await js("adapter.modifiers.shiftKey=true;adapter.modifiers.altKey=true;adapter.modifiers.ctrlKey=true");
+ await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:90,y:180,pointerType:'pen'});
+ await send('Input.dispatchMouseEvent',{type:'mousePressed',x:90,y:180,button:'left',buttons:1,clickCount:1,pointerType:'pen',force:0.6});
+ events=await js('events.splice(0)');
+ const penDown=events.filter(e=>e.type==='pointerdown'&&e.pointerType==='pen');
+ assert.equal(penDown.length,1,'pen tip presses immediately, exactly once');
+ assert(penDown[0].shift&&penDown[0].alt&&penDown[0].ctrl,'pen gets latched editing modifiers without a keyboard');
+ await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:145,y:180,button:'left',buttons:1,pointerType:'pen',force:0.7});
+ await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:145,y:180,button:'left',buttons:0,clickCount:1,pointerType:'pen'});
+ events=await js('events.splice(0)');
+ assert(events.some(e=>e.type==='mousemove'&&e.buttons===1&&e.shift&&e.alt&&e.ctrl),'pen drags keep the same modifiers');
+ assert.equal(events.filter(e=>e.type==='pointerup').length,1);
+ assert(!events.some(e=>e.type==='wheel'),'Auto pen edits rather than finger-swiping');
+ console.log('touch browser: immediate pen drag and on-screen modifiers passed');
+ await js("adapter.modifiers.shiftKey=false;adapter.modifiers.altKey=false;adapter.modifiers.ctrlKey=false");
+ const penInput=(type,x,y,button='left',buttons=0,extra={})=>send('Input.dispatchMouseEvent',{
+   type,x,y,button,buttons,pointerType:'pen',clickCount:type==='mouseMoved'?0:1,...extra});
+ const penDrag=async(a,b)=>{
+   await penInput('mouseMoved',a.x,a.y,'none');
+   await penInput('mousePressed',a.x,a.y,'left',1);
+   await penInput('mouseMoved',b.x,b.y,'left',1);
+   await penInput('mouseReleased',b.x,b.y);
+ };
+ await penInput('mouseMoved',125,130,'none');events=await js('events.splice(0)');
+ assert(events.some(e=>e.type==='mousemove'&&e.x===125&&e.y===130&&e.buttons===0),'pen hover reaches tooltip/hit testing without a click');
+ assert(!events.some(e=>e.type==='pointerdown'));
+ await js("adapter.controls.mode='scroll';adapter.modifiers.ctrlKey=true;adapter.modifiers.shiftKey=true");
+ await penDrag({x:90,y:180},{x:90,y:100});events=await js('events.splice(0)');
+ assert(events.some(e=>e.type==='wheel'&&e.dy>0&&!e.ctrl&&!e.shift),'pen Scroll cannot become a modified edit or zoom');
+ assert(!events.some(e=>e.type==='pointerdown'),'pen Scroll never presses the item underneath');
+ await penInput('mousePressed',90,180,'left',1);await penInput('mouseReleased',90,180);
+ events=await js('events.splice(0)');
+ assert.equal(events.filter(e=>e.type==='pointerdown'&&e.button===0).length,1,'pen taps still select in Scroll');
+ await js("adapter.controls.mode='box';adapter.modifiers.ctrlKey=false;adapter.modifiers.shiftKey=false");
+ await penDrag({x:100,y:330},{x:150,y:290});events=await js('events.splice(0)');
+ assert(events.some(e=>e.type==='pointerdown'&&e.button===0),'pen Box starts immediately in empty space');
+ await penDrag({x:90,y:180},{x:140,y:180});events=await js('events.splice(0)');
+ assert(!events.some(e=>e.type==='pointerdown'),'pen Box cannot move an occupied row');
+ await js("adapter.controls.mode='trim'");
+ await penDrag({x:10,y:180},{x:50,y:180});events=await js('events.splice(0)');
+ assert(events.some(e=>e.type==='pointerdown'&&e.x===20.5),'explicit pen Trim uses the accessible edge target');
+ await js('layout.overlay=true');
+ await penDrag({x:90,y:180},{x:140,y:180});events=await js('events.splice(0)');
+ assert(events.some(e=>e.type==='pointerdown'&&e.button===0),'Trim cannot block pen controls in an open dialog');
+ await js('layout.overlay=false');
+ await js("adapter.controls.mode='auto'");
+ await penInput('mousePressed',90,180,'right',2);await penInput('mouseReleased',90,180,'right');
+ events=await js('events.splice(0)');
+ assert.deepEqual(events.filter(e=>e.type==='pointerdown'||e.type==='pointerup').map(e=>[e.type,e.button]),[['pointerdown',2],['pointerup',2]],'barrel button opens options without left-clicking');
+ const options="document.querySelector('#touch-bar button[aria-label=\"Next touch or pen tap opens a context menu\"]')";
+ for(const input of ['pen','touch']) {
+   await js(`${options}.click()`);assert.equal(await js(`${options}.getAttribute('aria-pressed')`),'true');
+   if(input==='pen') { await penInput('mousePressed',90,180,'left',1);await penInput('mouseReleased',90,180); }
+   else { await touch('touchStart',[{x:90,y:180}]);await touch('touchEnd',[]); }
+   events=await js('events.splice(0)');
+   assert.deepEqual(events.filter(e=>e.type==='pointerdown'||e.type==='pointerup').map(e=>[e.type,e.button]),[['pointerdown',2],['pointerup',2]],`${input} Options needs no barrel button or long hold`);
+   assert.equal(await js(`${options}.getAttribute('aria-pressed')`),'false','Options resets after one gesture');
+ }
+ // Native pen plus finger events exercise ownership, not just the pure recognizer.
+ await penInput('mousePressed',300,300,'left',1);
+ await touch('touchStart',[{x:100,y:300}]);await touch('touchMove',[{x:100,y:200}]);
+ await penInput('mouseMoved',330,300,'left',1);
+ await penInput('mouseReleased',330,300);
+ await touch('touchMove',[{x:100,y:180}]);await touch('touchEnd',[]);
+ events=await js('events.splice(0)');
+ assert.equal(events.filter(e=>e.type==='pointerdown').length,1,'palm contact cannot add a second press');
+ assert.equal(events.filter(e=>e.type==='pointerup').length,1,'palm release cannot release the pen a second time');
+ assert(!events.some(e=>e.type==='wheel'),'a palm during pen contact cannot scroll or pinch');
+ await penInput('mousePressed',300,300,'left',1);await penInput('mouseMoved',330,300,'left',1);
+ await js("dispatchEvent(new Event('blur'))");await penInput('mouseReleased',330,300);
+ events=await js('events.splice(0)');
+ assert.equal(events.filter(e=>e.type==='pointerup').length,1,'blur releases pen once and owns its late physical release');
+ console.log('touch browser: pen modes, context, hover, palm guard and cancellation passed');
    // Shortcuts are direct buttons again: swiping the bar must not invoke any of them.
    assert.equal(await js("!!document.querySelector('#touch-bar button[aria-label=\"Open editing tools\"]')"),false);
    const callsBeforeSwipe = await js("calls.length");
@@ -230,7 +304,7 @@ try {
   await send("Emulation.setDeviceMetricsOverride",{width:1280,height:800,deviceScaleFactor:2,mobile:true});await pause(100);
   assert.equal(await js("document.documentElement.dataset.phoneLayout"),'false');
  assert.equal(errors.length,0,JSON.stringify(errors));
- console.log("touch browser: real finger swipes, viewer/scrollbar drags, overrides, pinch, modifiers, blur, mouse/pen, shortcut-bar scrolling scale picker and Back dismissal passed");
+ console.log("touch browser: finger regressions, pen hover/drag/modifiers/scroll/box/trim/context/palm/blur, native mouse, shortcuts, scale picker and Back passed");
 } finally {
  clearTimeout(deadline);ws?.close();chrome.kill();server.close();
  await rm(profile,{recursive:true,force:true,maxRetries:3,retryDelay:100});
