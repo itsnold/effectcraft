@@ -1,6 +1,6 @@
 # Android public alpha release checklist
 
-0.22.0-android.0.2.4-alpha is the next **public-alpha candidate**, not a claim that all Android devices work. The existing
+0.22.0-android.0.2.5-alpha is the next **public-alpha candidate**, not a claim that all Android devices work. The existing
 debug APK workflow remains available for development. Public releases use a separate persistent key.
 
 ## Signing setup (maintainer)
@@ -33,7 +33,7 @@ identity for a later update or expose the recovery password in logs, artifacts o
 1. Run **Android APK** on branch `android`, with `release_candidate` enabled.
 2. The APK/browser/JVM/lint checks AND the full Rust gate must pass before signing starts.
 3. The final job aligns, signs, verifies the non-debuggable APK and creates a **draft prerelease**
-   tagged `v0.22.0-android.0.2.4-alpha`, containing the APK and `SHA256SUMS.txt`. Nothing is auto-published.
+   tagged `v0.22.0-android.0.2.5-alpha`, containing the APK and `SHA256SUMS.txt`. Nothing is auto-published.
 4. Download the signed draft asset and complete the device checks below. Record device model,
    Android/WebView versions, results and any limitations in the release notes.
 5. Verify the repository and release will be publicly accessible; publish the draft only after
@@ -48,6 +48,7 @@ the version code/name and release tag before producing another candidate.
 - [ ] Real tablet, portrait/landscape, narrow split window, keyboard opening/closing.
 - [ ] System Back closes a sheet first; keyboard and focus do not get stuck.
 - [ ] All menus, direct shortcut-bar buttons, selection actions, precision timing and modifier controls are reachable.
+- [ ] Physical stylus: hover, selection/Shift selection, item/effect drops, Scroll/Box/Trim, barrel/Options menus, cancellation and stray-touch suppression; repeat core edits without a stylus.
 - [ ] Import an image and a small video; add/edit text; animate, trim, select, undo and preview.
 - [ ] Save project and source media externally; reopen after force-stop with media available.
 - [ ] Background/process-death recovery is tested and its actual limits documented.

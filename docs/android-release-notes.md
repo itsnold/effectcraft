@@ -1,9 +1,20 @@
-# EffectCraft 0.22.0 — Android 0.2.4-alpha
+# EffectCraft 0.22.0 — Android 0.2.5-alpha
 
 Update to the **unofficial Android fork**, based on EffectCraft v0.22.0.
 This is the Android-compatible EffectCraft editor, not an official ArtCraft Android release.
 
 ## What's changed
+
+- Stylus input now shares the on-screen Shift/Alt/Ctrl modifiers and Scroll, Box select and Trim
+  modes. Auto keeps immediate, precise tip drags; hover targets controls without selecting.
+- Barrel-button context clicks, plus a one-shot **Options** shortcut for pens without a side button
+  and for finger users. No feature requires owning a stylus.
+- Canvas touches starting during pen contact are suppressed until lifted; app switching, rotation
+  and lost capture release the pen state. This is not hardware palm rejection.
+- Regression coverage for pen selection, Shift multi-select, Project/effect drops and undo on phones
+  and tablets, alongside the existing touch checks and the 4096-pixel WebGL fallback.
+
+This update also retains the Android 0.2.4 improvements:
 
 - A consistent dark mobile style, clearer selected/focus states and labelled timing fields.
 - Responsive bottom sheets on phones and centred dialogs on tablets; background interaction is
@@ -24,13 +35,13 @@ This is the Android-compatible EffectCraft editor, not an official ArtCraft Andr
 
 ## Install and back up first
 
-Download `EffectCraft-0.22.0-android.0.2.4-alpha.apk` and allow installation from your browser/file manager.
+Download `EffectCraft-0.22.0-android.0.2.5-alpha.apk` and allow installation from your browser/file manager.
 Check its SHA-256 against `SHA256SUMS.txt`. Requires Android 10+, OpenGL ES 3 and a recent Android
 System WebView. This is not a Play Store release.
 
 This APK is a **non-debuggable release build**, signed with the fork's permanent release key.
 It is not the debug-signed APK from Actions. The package remains `io.github.itsnold.ecdroid`,
-version code **15**. It retains the certificate used for previous public APKs, so Android can
+version code **16**. It retains the certificate used for previous public APKs, so Android can
 accept it as an in-place update without uninstalling. Keep external project/media backups anyway.
 
 Signing certificate SHA-256 (not the APK checksum):
@@ -49,6 +60,8 @@ Alpha software: start with short, small projects. This is a WebView/WASM editor,
 accelerated native video pipeline. Heavy effects/software video exports may be slow or exhaust
 memory. Background rendering and recovery after Android kills the process are not guaranteed.
 Some specialist panels remain desktop-oriented. Keep external copies of projects and media.
+Pressure-sensitive brush width, tilt-controlled painting and eraser-end tools are not implemented.
+Physical-stylus behavior and release-signed device acceptance of this candidate remain unverified.
 
 ## Compatibility and validation
 
